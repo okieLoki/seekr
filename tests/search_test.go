@@ -5,13 +5,25 @@ import (
 	"os"
 	"testing"
 
+	"seekr/db"
 	"seekr/services"
 	"seekr/types"
 )
 
 func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
 	t.Helper()
-	engine := services.NewEngine()
+
+	tmpDb := t.TempDir() + "/test_seekr.db"
+	store, err := db.NewStore(tmpDb)
+	if err != nil {
+		t.Fatalf("Failed to open localized DB: %v", err)
+	}
+
+	t.Cleanup(func() {
+		store.Close()
+	})
+
+	engine := services.NewEngine(store)
 
 	data, err := os.ReadFile(filepath)
 	if err != nil {

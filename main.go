@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"seekr/controllers"
+	"seekr/db"
 	"seekr/routes"
 	"seekr/services"
 )
@@ -15,7 +16,14 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	engine := services.NewEngine()
+	store, err := db.NewStore("seekr.db")
+	if err != nil {
+		slog.Error("Database failed to boot", "error", err)
+		os.Exit(1)
+	}
+	defer store.Close()
+
+	engine := services.NewEngine(store)
 	controller := controllers.NewSearchController(engine)
 	router := routes.SetupRouter(controller)
 

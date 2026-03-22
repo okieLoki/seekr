@@ -4,27 +4,18 @@ import (
 	"errors"
 	"log/slog"
 	"math"
-	"seekr/index"
-	"seekr/tokenizer"
 	"sort"
-	"sync"
+
+	"seekr/db"
+	"seekr/tokenizer"
 )
 
 type Engine struct {
-	mu          sync.RWMutex
-	Index       *index.InvertedIndex
-	Docs        map[int]string
-	DocLengths  map[int]int
-	TotalDocs   int
-	TotalLength int
+	Store *db.Store
 }
 
-func NewEngine() *Engine {
-	return &Engine{
-		Index:      index.New(),
-		Docs:       make(map[int]string),
-		DocLengths: make(map[int]int),
-	}
+func NewEngine(store *db.Store) *Engine {
+	return &Engine{Store: store}
 }
 
 func (e *Engine) AddDocument(docId int, text string) error {
@@ -35,26 +26,14 @@ func (e *Engine) AddDocument(docId int, text string) error {
 	}
 
 	words := tokenizer.Tokenizer(text)
-	wordCount := len(words)
 
-	e.mu.Lock()
-	if _, exists := e.Docs[docId]; exists {
-		e.mu.Unlock()
-		err := errors.New("document already exists")
-		slog.Warn("Attempted to add duplicate document", "docId", docId)
+	err := e.Store.SaveDocument(docId, text, words)
+	if err != nil {
+		slog.Warn("Attempted to add document failed", "docId", docId, "error", err)
 		return err
 	}
-	e.Docs[docId] = text
-	e.DocLengths[docId] = wordCount
-	e.TotalDocs++
-	e.TotalLength += wordCount
-	e.mu.Unlock()
 
-	for _, word := range words {
-		e.Index.Add(word, docId)
-	}
-
-	slog.Info("Document added successfully", "docId", docId, "wordCount", wordCount)
+	slog.Info("Document added safely to bbolt database", "docId", docId, "wordCount", len(words))
 	return nil
 }
 
@@ -62,53 +41,65 @@ func (e *Engine) Search(query string) ([]string, error) {
 	if query == "" {
 		return nil, errors.New("empty query")
 	}
-
 	words := tokenizer.Tokenizer(query)
 	if len(words) == 0 {
 		return []string{}, nil
 	}
 
-	slog.Info("Processing search query", "query", query, "tokens", len(words))
+	slog.Info("Processing search query against bbolt database", "query", query, "tokens", len(words))
 
-	e.mu.RLock()
-	totalDocs := float64(e.TotalDocs)
-	var avgdl float64
-	if e.TotalDocs > 0 {
-		avgdl = float64(e.TotalLength) / totalDocs
+	totalDocs, totalLength, err := e.Store.GetMetadata()
+	if err != nil {
+		return nil, err
 	}
-	e.mu.RUnlock()
-
 	if totalDocs == 0 {
 		return []string{}, nil
 	}
 
+	avgdl := totalLength / totalDocs
 	docScoresMap := make(map[int]float64)
+	docFreqsBuffer := make([]map[int]int, 0, len(words))
+
+	uniqueDocIdsMap := make(map[int]bool)
+
+	for _, word := range words {
+		freqs, err := e.Store.GetFuzzyPostingLists(word)
+		if err != nil {
+			return nil, err
+		}
+		docFreqsBuffer = append(docFreqsBuffer, freqs)
+		for docId := range freqs {
+			uniqueDocIdsMap[docId] = true
+		}
+	}
+
+	docIdsBatch := make([]int, 0, len(uniqueDocIdsMap))
+	for id := range uniqueDocIdsMap {
+		docIdsBatch = append(docIdsBatch, id)
+	}
+
+	lengthsMap, err := e.Store.GetDocLengths(docIdsBatch)
+	if err != nil {
+		return nil, err
+	}
+
 	k1 := 1.5
 	b := 0.75
 
-	for _, word := range words {
-		docFreqs := e.Index.Get(word)
-		n := float64(len(docFreqs))
+	for _, freqs := range docFreqsBuffer {
+		n := float64(len(freqs))
 		if n == 0 {
 			continue
 		}
-
-		// Calculate IDF
 		idf := math.Log((totalDocs-n+0.5)/(n+0.5) + 1.0)
 
-		e.mu.RLock()
-		for docId, tf := range docFreqs {
-			docLen := float64(e.DocLengths[docId])
+		for docId, tf := range freqs {
+			docLen := lengthsMap[docId]
 			tfFloat := float64(tf)
-
-			// BM25 term score
 			numerator := tfFloat * (k1 + 1.0)
 			denominator := tfFloat + k1*(1.0-b+b*(docLen/avgdl))
-			score := idf * (numerator / denominator)
-
-			docScoresMap[docId] += score
+			docScoresMap[docId] += idf * (numerator / denominator)
 		}
-		e.mu.RUnlock()
 	}
 
 	type docScore struct {
@@ -119,20 +110,22 @@ func (e *Engine) Search(query string) ([]string, error) {
 	for id, score := range docScoresMap {
 		scores = append(scores, docScore{id, score})
 	}
-
 	sort.Slice(scores, func(i, j int) bool {
 		if scores[i].score == scores[j].score {
-			return scores[i].id < scores[j].id // tie-breaker
+			return scores[i].id < scores[j].id
 		}
 		return scores[i].score > scores[j].score
 	})
 
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
-	var results []string
+	sortedIds := make([]int, 0, len(scores))
 	for _, s := range scores {
-		results = append(results, e.Docs[s.id])
+		sortedIds = append(sortedIds, s.id)
+	}
+
+	docsTextMap, _ := e.Store.GetDocuments(sortedIds)
+	var results []string
+	for _, id := range sortedIds {
+		results = append(results, docsTextMap[id])
 	}
 
 	slog.Info("Search completed", "query", query, "resultsCount", len(results))
