@@ -44,10 +44,10 @@ func (s *Store) Close() error {
 	return s.DB.Close()
 }
 
-func (s *Store) SaveDocument(docId int, text string, words []string) error {
+func (s *Store) SaveDocument(docId string, text string, words []string) error {
 	return s.DB.Update(func(tx *bbolt.Tx) error {
 		bDocs := tx.Bucket(BucketDocs)
-		docIdBytes := []byte(strconv.Itoa(docId))
+		docIdBytes := []byte(docId)
 
 		if bDocs.Get(docIdBytes) != nil {
 			return errors.New("document already exists")
@@ -82,7 +82,7 @@ func (s *Store) SaveDocument(docId int, text string, words []string) error {
 		for word, freq := range wordFreqs {
 			wb := []byte(word)
 			existing := bIndex.Get(wb)
-			postings := make(map[int]int)
+			postings := make(map[string]int)
 			if existing != nil {
 				json.Unmarshal(existing, &postings)
 			}
@@ -94,24 +94,86 @@ func (s *Store) SaveDocument(docId int, text string, words []string) error {
 	})
 }
 
-func (s *Store) GetFuzzyPostingLists(word string) (map[int]int, error) {
-	matchDocs := make(map[int]int)
+func (s *Store) UpdateDocument(docId string, newText string, oldWords []string, newWords []string) error {
+	return s.DB.Update(func(tx *bbolt.Tx) error {
+		bDocs := tx.Bucket(BucketDocs)
+		docIdBytes := []byte(docId)
 
-	err := s.DB.View(func(tx *bbolt.Tx) error {
+		if bDocs.Get(docIdBytes) == nil {
+			return errors.New("document not found")
+		}
+
+		if err := bDocs.Put(docIdBytes, []byte(newText)); err != nil {
+			return err
+		}
+
+		bLengths := tx.Bucket(BucketDocLengths)
+		bLengths.Put(docIdBytes, []byte(strconv.Itoa(len(newWords))))
+
+		bMeta := tx.Bucket(BucketMetadata)
+		var totalLength int
+		if tl := bMeta.Get([]byte("TotalLength")); tl != nil {
+			totalLength, _ = strconv.Atoi(string(tl))
+		}
+		totalLength = totalLength - len(oldWords) + len(newWords)
+		bMeta.Put([]byte("TotalLength"), []byte(strconv.Itoa(totalLength)))
+
 		bIndex := tx.Bucket(BucketIndex)
 
-		// Exact Match First Configuration
+		oldWordFreqs := make(map[string]int)
+		for _, w := range oldWords {
+			oldWordFreqs[w]++
+		}
+		for word, freq := range oldWordFreqs {
+			wb := []byte(word)
+			if existing := bIndex.Get(wb); existing != nil {
+				postings := make(map[string]int)
+				json.Unmarshal(existing, &postings)
+				postings[docId] -= freq
+				if postings[docId] <= 0 {
+					delete(postings, docId)
+				}
+				if len(postings) == 0 {
+					bIndex.Delete(wb)
+				} else {
+					encoded, _ := json.Marshal(postings)
+					bIndex.Put(wb, encoded)
+				}
+			}
+		}
+
+		newWordFreqs := make(map[string]int)
+		for _, w := range newWords {
+			newWordFreqs[w]++
+		}
+		for word, freq := range newWordFreqs {
+			wb := []byte(word)
+			existing := bIndex.Get(wb)
+			postings := make(map[string]int)
+			if existing != nil {
+				json.Unmarshal(existing, &postings)
+			}
+			postings[docId] += freq
+			encoded, _ := json.Marshal(postings)
+			bIndex.Put(wb, encoded)
+		}
+		return nil
+	})
+}
+
+func (s *Store) GetFuzzyPostingLists(word string) (map[string]int, error) {
+	matchDocs := make(map[string]int)
+	err := s.DB.View(func(tx *bbolt.Tx) error {
+		bIndex := tx.Bucket(BucketIndex)
 		if existing := bIndex.Get([]byte(word)); existing != nil {
 			json.Unmarshal(existing, &matchDocs)
 			return nil
 		}
-
-		// Fuzzy Match Iteration Tolerance (Max L-Distance <= 2)
 		c := bIndex.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			dictWord := string(k)
 			if utils.Levenshtein(word, dictWord) <= 2 {
-				postings := make(map[int]int)
+				postings := make(map[string]int)
 				if json.Unmarshal(v, &postings) == nil {
 					for docId, freq := range postings {
 						matchDocs[docId] += freq
@@ -121,32 +183,29 @@ func (s *Store) GetFuzzyPostingLists(word string) (map[int]int, error) {
 		}
 		return nil
 	})
-
 	return matchDocs, err
 }
 
-func (s *Store) GetMetadata() (totalDocs float64, totalLength float64, err error) {
+func (s *Store) GetStats() (totalDocs int, totalLength int, err error) {
 	err = s.DB.View(func(tx *bbolt.Tx) error {
 		bMeta := tx.Bucket(BucketMetadata)
 		if td := bMeta.Get([]byte("TotalDocs")); td != nil {
-			parsed, _ := strconv.Atoi(string(td))
-			totalDocs = float64(parsed)
+			totalDocs, _ = strconv.Atoi(string(td))
 		}
 		if tl := bMeta.Get([]byte("TotalLength")); tl != nil {
-			parsed, _ := strconv.Atoi(string(tl))
-			totalLength = float64(parsed)
+			totalLength, _ = strconv.Atoi(string(tl))
 		}
 		return nil
 	})
 	return
 }
 
-func (s *Store) GetDocLengths(docIds []int) (map[int]float64, error) {
-	lengths := make(map[int]float64)
+func (s *Store) GetDocLengths(docIds []string) (map[string]float64, error) {
+	lengths := make(map[string]float64)
 	err := s.DB.View(func(tx *bbolt.Tx) error {
 		bLengths := tx.Bucket(BucketDocLengths)
 		for _, id := range docIds {
-			if dl := bLengths.Get([]byte(strconv.Itoa(id))); dl != nil {
+			if dl := bLengths.Get([]byte(id)); dl != nil {
 				parsed, _ := strconv.Atoi(string(dl))
 				lengths[id] = float64(parsed)
 			}
@@ -156,12 +215,34 @@ func (s *Store) GetDocLengths(docIds []int) (map[int]float64, error) {
 	return lengths, err
 }
 
-func (s *Store) GetDocuments(docIds []int) (map[int]string, error) {
-	docs := make(map[int]string)
+func (s *Store) GetPaginatedDocuments(page, limit int) (map[string]string, int, error) {
+	docs := make(map[string]string)
+	var total int
+	err := s.DB.View(func(tx *bbolt.Tx) error {
+		bDocs := tx.Bucket(BucketDocs)
+		total = bDocs.Stats().KeyN
+
+		c := bDocs.Cursor()
+		skip := (page - 1) * limit
+
+		i := 0
+		for k, v := c.First(); k != nil; k, v = c.Next() {
+			if i >= skip && i < skip+limit {
+				docs[string(k)] = string(v)
+			}
+			i++
+		}
+		return nil
+	})
+	return docs, total, err
+}
+
+func (s *Store) GetDocuments(docIds []string) (map[string]string, error) {
+	docs := make(map[string]string)
 	err := s.DB.View(func(tx *bbolt.Tx) error {
 		bDocs := tx.Bucket(BucketDocs)
 		for _, id := range docIds {
-			if txt := bDocs.Get([]byte(strconv.Itoa(id))); txt != nil {
+			if txt := bDocs.Get([]byte(id)); txt != nil {
 				docs[id] = string(txt)
 			}
 		}

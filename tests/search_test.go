@@ -37,7 +37,7 @@ func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
 
 	for _, doc := range docs {
 		if err := engine.AddDocument(doc.ID, doc.Text); err != nil {
-			t.Fatalf("Failed to add document ID %d: %v", doc.ID, err)
+			t.Fatalf("Failed to add document ID %s: %v", doc.ID, err)
 		}
 	}
 	return engine

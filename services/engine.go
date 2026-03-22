@@ -8,6 +8,7 @@ import (
 
 	"seekr/db"
 	"seekr/tokenizer"
+	"seekr/types"
 )
 
 type Engine struct {
@@ -18,18 +19,14 @@ func NewEngine(store *db.Store) *Engine {
 	return &Engine{Store: store}
 }
 
-func (e *Engine) AddDocument(docId int, text string) error {
+func (e *Engine) AddDocument(docId string, text string) error {
 	if text == "" {
-		err := errors.New("empty document text")
-		slog.Error("Failed to add document", "docId", docId, "error", err)
-		return err
+		return errors.New("empty document")
 	}
 
 	words := tokenizer.Tokenizer(text)
-
 	err := e.Store.SaveDocument(docId, text, words)
 	if err != nil {
-		slog.Warn("Attempted to add document failed", "docId", docId, "error", err)
 		return err
 	}
 
@@ -37,97 +34,140 @@ func (e *Engine) AddDocument(docId int, text string) error {
 	return nil
 }
 
-func (e *Engine) Search(query string) ([]string, error) {
-	if query == "" {
-		return nil, errors.New("empty query")
-	}
+func (e *Engine) Search(query string) ([]types.Document, error) {
 	words := tokenizer.Tokenizer(query)
 	if len(words) == 0 {
-		return []string{}, nil
+		return []types.Document{}, nil
 	}
 
 	slog.Info("Processing search query against bbolt database", "query", query, "tokens", len(words))
 
-	totalDocs, totalLength, err := e.Store.GetMetadata()
+	totalDocsInt, totalLengthInt, err := e.Store.GetStats()
 	if err != nil {
 		return nil, err
 	}
-	if totalDocs == 0 {
-		return []string{}, nil
+	if totalDocsInt == 0 {
+		return []types.Document{}, nil
 	}
 
+	totalDocs := float64(totalDocsInt)
+	totalLength := float64(totalLengthInt)
 	avgdl := totalLength / totalDocs
-	docScoresMap := make(map[int]float64)
-	docFreqsBuffer := make([]map[int]int, 0, len(words))
-
-	uniqueDocIdsMap := make(map[int]bool)
+	docScoresMap := make(map[string]float64)
+	docFreqsBuffer := make([]map[string]int, 0, len(words))
+	uniqueDocIds := make(map[string]bool)
 
 	for _, word := range words {
-		freqs, err := e.Store.GetFuzzyPostingLists(word)
+		postings, err := e.Store.GetFuzzyPostingLists(word)
 		if err != nil {
-			return nil, err
+			slog.Error("Fuzzy posting fetch failed", "error", err)
+			continue
 		}
-		docFreqsBuffer = append(docFreqsBuffer, freqs)
-		for docId := range freqs {
-			uniqueDocIdsMap[docId] = true
+		docFreqsBuffer = append(docFreqsBuffer, postings)
+		for docId := range postings {
+			uniqueDocIds[docId] = true
 		}
 	}
 
-	docIdsBatch := make([]int, 0, len(uniqueDocIdsMap))
-	for id := range uniqueDocIdsMap {
-		docIdsBatch = append(docIdsBatch, id)
+	docIdSlice := make([]string, 0, len(uniqueDocIds))
+	for id := range uniqueDocIds {
+		docIdSlice = append(docIdSlice, id)
 	}
 
-	lengthsMap, err := e.Store.GetDocLengths(docIdsBatch)
+	lengthsMap, err := e.Store.GetDocLengths(docIdSlice)
 	if err != nil {
 		return nil, err
 	}
 
-	k1 := 1.5
-	b := 0.75
-
-	for _, freqs := range docFreqsBuffer {
-		n := float64(len(freqs))
-		if n == 0 {
+	for i := range words {
+		postings := docFreqsBuffer[i]
+		df := float64(len(postings))
+		if df == 0 {
 			continue
 		}
-		idf := math.Log((totalDocs-n+0.5)/(n+0.5) + 1.0)
+		idf := math.Log(1 + (totalDocs-df+0.5)/(df+0.5))
 
-		for docId, tf := range freqs {
-			docLen := lengthsMap[docId]
-			tfFloat := float64(tf)
-			numerator := tfFloat * (k1 + 1.0)
-			denominator := tfFloat + k1*(1.0-b+b*(docLen/avgdl))
-			docScoresMap[docId] += idf * (numerator / denominator)
+		for docId, freq := range postings {
+			tf := float64(freq)
+			dl := lengthsMap[docId]
+			if dl == 0 {
+				dl = avgdl
+			}
+			score := idf * (tf * (1.5 + 1)) / (tf + 1.5*(1-0.75+0.75*(dl/avgdl)))
+			docScoresMap[docId] += score
 		}
 	}
 
-	type docScore struct {
-		id    int
+	type scoreDoc struct {
+		id    string
 		score float64
 	}
-	var scores []docScore
+	var sorted []scoreDoc
 	for id, score := range docScoresMap {
-		scores = append(scores, docScore{id, score})
+		sorted = append(sorted, scoreDoc{id, score})
 	}
-	sort.Slice(scores, func(i, j int) bool {
-		if scores[i].score == scores[j].score {
-			return scores[i].id < scores[j].id
+
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].score > sorted[j].score })
+
+	topDocIds := make([]string, 0, len(sorted))
+	for _, sd := range sorted {
+		topDocIds = append(topDocIds, sd.id)
+	}
+
+	docTexts, err := e.Store.GetDocuments(topDocIds)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []types.Document
+	for _, id := range topDocIds {
+		if text, ok := docTexts[id]; ok {
+			results = append(results, types.Document{ID: id, Text: text})
 		}
-		return scores[i].score > scores[j].score
-	})
-
-	sortedIds := make([]int, 0, len(scores))
-	for _, s := range scores {
-		sortedIds = append(sortedIds, s.id)
-	}
-
-	docsTextMap, _ := e.Store.GetDocuments(sortedIds)
-	var results []string
-	for _, id := range sortedIds {
-		results = append(results, docsTextMap[id])
 	}
 
 	slog.Info("Search completed", "query", query, "resultsCount", len(results))
 	return results, nil
+}
+
+func (e *Engine) GetStats() (int, int, error) {
+	return e.Store.GetStats()
+}
+
+func (e *Engine) GetDocuments(page, limit int) ([]types.Document, int, error) {
+	docsMap, total, err := e.Store.GetPaginatedDocuments(page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var res []types.Document
+	for id, text := range docsMap {
+		res = append(res, types.Document{ID: id, Text: text})
+	}
+	sort.Slice(res, func(i, j int) bool { return res[i].ID > res[j].ID })
+	return res, total, nil
+}
+
+func (e *Engine) UpdateDocument(docId string, newText string) error {
+	if newText == "" {
+		return errors.New("empty document text")
+	}
+
+	docs, err := e.Store.GetDocuments([]string{docId})
+	if err != nil {
+		return err
+	}
+	oldText, exists := docs[docId]
+	if !exists {
+		return errors.New("document not found")
+	}
+
+	oldWords := tokenizer.Tokenizer(oldText)
+	newWords := tokenizer.Tokenizer(newText)
+
+	err = e.Store.UpdateDocument(docId, newText, oldWords, newWords)
+	if err == nil {
+		slog.Info("Document safely updated dynamically across BM25 stores", "docId", docId)
+	}
+	return err
 }
