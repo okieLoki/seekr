@@ -1,54 +1,96 @@
 package tests
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
-	"seekr/search"
+	"seekr/services"
+	"seekr/types"
 )
 
-func TestEngine(t *testing.T) {
-	engine := search.NewEngine()
+func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
+	t.Helper()
+	engine := services.NewEngine()
 
-	_ = engine.AddDocument(1, "Hello world, this is a test.")
-	_ = engine.AddDocument(2, "Test the search engine with Go.")
-	_ = engine.AddDocument(3, "Hello Go! Go is awesome.")
-
-	tests := []struct {
-		name          string
-		query         string
-		expectedCount int
-	}{
-		{
-			"single word",
-			"world",
-			1,
-		},
-		{
-			"multiple words bm25 ranking",
-			"hello go test",
-			3,
-		},
-		{
-			"missing word",
-			"missing",
-			0,
-		},
-		{
-			"stemming match",
-			"testing searches", // Should stem to "test" and "search", matching docs 1 and 2
-			2,
-		},
+	data, err := os.ReadFile(filepath)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", filepath, err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := engine.Search(tt.query)
-			if err != nil {
-				t.Fatalf("unexpected search error: %v", err)
-			}
-			if len(result) != tt.expectedCount {
-				t.Errorf("Search(%q) returned %d results; expected %d", tt.query, len(result), tt.expectedCount)
-			}
-		})
+	var docs []types.IndexRequest
+	if err := json.Unmarshal(data, &docs); err != nil {
+		t.Fatalf("Failed to parse %s: %v", filepath, err)
+	}
+
+	for _, doc := range docs {
+		if err := engine.AddDocument(doc.ID, doc.Text); err != nil {
+			t.Fatalf("Failed to add document ID %d: %v", doc.ID, err)
+		}
+	}
+	return engine
+}
+
+func TestEngine_SingleWordSearch(t *testing.T) {
+	engine := loadEngineWithData(t, "data/docs.json")
+	result, err := engine.Search("galaxy")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("Search returned %d results; expected 1", len(result))
+	}
+}
+
+func TestEngine_BM25RankingMultipleWords(t *testing.T) {
+	engine := loadEngineWithData(t, "data/docs.json")
+	result, err := engine.Search("banana spaceship")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 3 {
+		t.Errorf("Search returned %d results; expected 3", len(result))
+	}
+}
+
+func TestEngine_MissingWord(t *testing.T) {
+	engine := loadEngineWithData(t, "data/docs.json")
+	result, err := engine.Search("extraterrestrial")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("Search returned %d results; expected 0", len(result))
+	}
+}
+
+func TestEngine_StemmingMatch(t *testing.T) {
+	engine := loadEngineWithData(t, "data/docs.json")
+	result, err := engine.Search("spaceships")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Errorf("Search returned %d results; expected 2", len(result))
+	}
+}
+
+func TestEngine_LargePayloadRegression(t *testing.T) {
+	engine := loadEngineWithData(t, "data/large_docs.json")
+
+	result, err := engine.Search("payload")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 100 {
+		t.Errorf("Search returned %d results for payload; expected 100", len(result))
+	}
+
+	result2, err := engine.Search("sequence 50")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result2) != 100 {
+		t.Errorf("Search returned %d results for 'sequence 50'; expected 100", len(result2))
 	}
 }

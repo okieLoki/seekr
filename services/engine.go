@@ -1,4 +1,4 @@
-package search
+package services
 
 import (
 	"errors"
@@ -94,18 +94,18 @@ func (e *Engine) Search(query string) ([]string, error) {
 		}
 
 		// Calculate IDF
-		idf := math.Log((totalDocs - n + 0.5) / (n + 0.5) + 1.0)
+		idf := math.Log((totalDocs-n+0.5)/(n+0.5) + 1.0)
 
 		e.mu.RLock()
 		for docId, tf := range docFreqs {
 			docLen := float64(e.DocLengths[docId])
 			tfFloat := float64(tf)
-			
+
 			// BM25 term score
 			numerator := tfFloat * (k1 + 1.0)
 			denominator := tfFloat + k1*(1.0-b+b*(docLen/avgdl))
 			score := idf * (numerator / denominator)
-			
+
 			docScoresMap[docId] += score
 		}
 		e.mu.RUnlock()
@@ -129,7 +129,7 @@ func (e *Engine) Search(query string) ([]string, error) {
 
 	e.mu.RLock()
 	defer e.mu.RUnlock()
-	
+
 	var results []string
 	for _, s := range scores {
 		results = append(results, e.Docs[s.id])

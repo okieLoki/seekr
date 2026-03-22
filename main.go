@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"seekr/search"
-	"seekr/server"
+	"seekr/controllers"
+	"seekr/routes"
+	"seekr/services"
 )
 
 func main() {
@@ -14,16 +15,12 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	engine := search.NewEngine()
-
-	// Pre-index a document for testing
-	_ = engine.AddDocument(1, "Elasticsearch is a distributed, RESTful search and analytics engine.")
-	_ = engine.AddDocument(2, "Building a search engine in Go is a fun and educational project.")
-
-	srv := server.New(engine)
+	engine := services.NewEngine()
+	controller := controllers.NewSearchController(engine)
+	router := routes.SetupRouter(controller)
 
 	slog.Info("Starting REST API search server on :8080")
-	if err := http.ListenAndServe(":8080", srv); err != nil {
+	if err := http.ListenAndServe(":8080", router); err != nil {
 		slog.Error("Server failed", "error", err)
 		os.Exit(1)
 	}

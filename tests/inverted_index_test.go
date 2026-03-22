@@ -2,31 +2,31 @@ package tests
 
 import (
 	"reflect"
-	"testing"
 	"seekr/index"
+	"testing"
 )
 
-func TestInvertedIndex(t *testing.T) {
+func TestInvertedIndex_GetEmpty(t *testing.T) {
 	idx := index.New()
-
 	if docs := idx.Get("hello"); len(docs) != 0 {
 		t.Errorf("expected empty map, got %v", docs)
 	}
+}
 
+func TestInvertedIndex_AddAndGet(t *testing.T) {
+	idx := index.New()
 	idx.Add("hello", 1)
 	idx.Add("hello", 2)
 	idx.Add("world", 1)
-	idx.Add("hello", 1) // duplicate increases TF
+	idx.Add("hello", 1)
 
-	docs := idx.Get("hello")
 	expectedHello := map[int]int{1: 2, 2: 1}
-	if !reflect.DeepEqual(docs, expectedHello) {
+	if docs := idx.Get("hello"); !reflect.DeepEqual(docs, expectedHello) {
 		t.Errorf("expected %v, got %v", expectedHello, docs)
 	}
 
-	docsWorld := idx.Get("world")
 	expectedWorld := map[int]int{1: 1}
-	if !reflect.DeepEqual(docsWorld, expectedWorld) {
-		t.Errorf("expected %v, got %v", expectedWorld, docsWorld)
+	if docs := idx.Get("world"); !reflect.DeepEqual(docs, expectedWorld) {
+		t.Errorf("expected %v, got %v", expectedWorld, docs)
 	}
 }
