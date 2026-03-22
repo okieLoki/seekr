@@ -1,0 +1,251 @@
+basePath: /
+definitions:
+  types.BulkIndexResult:
+    properties:
+      errors:
+        items:
+          type: string
+        type: array
+      indexed:
+        type: integer
+      skipped:
+        type: integer
+    type: object
+  types.Document:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  types.IndexRequest:
+    properties:
+      id:
+        type: string
+      text:
+        type: string
+    type: object
+  types.PaginatedDocsResponse:
+    properties:
+      documents:
+        items:
+          $ref: '#/definitions/types.Document'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  types.SearchResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/types.Document'
+        type: array
+    type: object
+  types.StatsResponse:
+    properties:
+      totalDocs:
+        type: integer
+      totalLength:
+        type: integer
+    type: object
+  types.UpdateRequest:
+    properties:
+      text:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    name: Seekr
+  description: A BM25-powered full-text search engine with persistent bbolt storage.
+    Supports plain text, JSON, YAML, TOML, XML, and HTML document ingestion.
+  license:
+    name: MIT
+  title: Seekr API
+  version: "1.0"
+paths:
+  /api/documents:
+    get:
+      description: Returns a paginated list of all stored documents with their raw
+        content.
+      parameters:
+      - description: 'Page number (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Page size (default: 10, max recommended: 50)'
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.PaginatedDocsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: List documents
+      tags:
+      - documents
+  /api/documents/update:
+    put:
+      consumes:
+      - application/json
+      description: Replaces the stored content of a document and re-indexes it. The
+        BM25 index is updated atomically — old tokens are removed and new ones are
+        scored.
+      parameters:
+      - description: Document ID
+        in: query
+        name: id
+        required: true
+        type: string
+      - description: New document content
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateRequest'
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Update a document
+      tags:
+      - documents
+  /api/stats:
+    get:
+      description: Returns the total number of indexed documents and the total number
+        of indexed tokens across all documents.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.StatsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Get database stats
+      tags:
+      - stats
+  /bulk-index:
+    post:
+      consumes:
+      - application/json
+      description: Accepts a JSON array of documents. Each item may include optional
+        "id" and "text" fields. If "id" is omitted a UUID v4 is auto-generated. If
+        "text" is omitted the entire JSON object is used as the document body and
+        parsed by the format-aware extractor.
+      parameters:
+      - description: Array of documents to index
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            items:
+              format: int32
+              type: integer
+            type: array
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.BulkIndexResult'
+        "400":
+          description: Invalid JSON array
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Bulk index documents
+      tags:
+      - documents
+  /index:
+    post:
+      consumes:
+      - application/json
+      description: Stores and indexes a document by its ID. Accepts plain text, JSON,
+        YAML, TOML, XML, or HTML — only string values are indexed, the raw payload
+        is stored verbatim.
+      parameters:
+      - description: Document to index
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/types.IndexRequest'
+      produces:
+      - text/plain
+      responses:
+        "201":
+          description: Created
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Index a document
+      tags:
+      - documents
+  /search:
+    get:
+      description: Runs a BM25 full-text search with fuzzy matching over all indexed
+        documents. Results are ranked by relevance score.
+      parameters:
+      - description: Search query
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.SearchResponse'
+        "400":
+          description: q parameter is required
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Search documents
+      tags:
+      - search
+swagger: "2.0"

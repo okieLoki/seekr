@@ -4,8 +4,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	_ "seekr/docs"
 	"seekr/controllers"
 	"seekr/ui"
+
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func SetupRouter(c *controllers.SearchController) *http.ServeMux {
@@ -17,6 +20,9 @@ func SetupRouter(c *controllers.SearchController) *http.ServeMux {
 	router.HandleFunc("/api/stats", c.HandleStats)
 	router.HandleFunc("/api/documents", c.HandleDocuments)
 	router.HandleFunc("/api/documents/update", c.HandleUpdate)
+
+	// Swagger UI
+	router.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	router.Handle("/", http.FileServer(http.FS(ui.Files)))
 
