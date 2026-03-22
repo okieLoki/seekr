@@ -2,8 +2,9 @@ package tests
 
 import (
 	"reflect"
-	"seekr/tokenizer"
 	"testing"
+
+	"seekr/tokenizer"
 )
 
 func TestTokenizer(t *testing.T) {
@@ -18,6 +19,9 @@ func TestTokenizer(t *testing.T) {
 		{"mixed case", "Hello World", []string{"hello", "world"}},
 		{"numbers", "go 1.21", []string{"go", "1", "21"}},
 		{"only punctuation", "!!! ???", []string{}},
+		{"stop words filter", "the quick brown fox is fast", []string{"quick", "brown", "fox", "fast"}},
+		{"stemming", "running cats", []string{"run", "cat"}},
+		{"combined text analysis", "the cats are running with dogs", []string{"cat", "run", "dog"}},
 	}
 
 	for _, tt := range tests {
