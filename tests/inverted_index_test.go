@@ -2,31 +2,31 @@ package tests
 
 import (
 	"reflect"
-	"seekr/index"
 	"testing"
+	"seekr/index"
 )
 
 func TestInvertedIndex(t *testing.T) {
 	idx := index.New()
 
 	if docs := idx.Get("hello"); len(docs) != 0 {
-		t.Errorf("expected empty slice, got %v", docs)
+		t.Errorf("expected empty map, got %v", docs)
 	}
 
 	idx.Add("hello", 1)
-	idx.Add("world", 1)
 	idx.Add("hello", 2)
+	idx.Add("world", 1)
+	idx.Add("hello", 1) // duplicate increases TF
 
-	if docs := idx.Get("hello"); !reflect.DeepEqual(docs, []int{1, 2}) {
-		t.Errorf("expected [1, 2], got %v", docs)
+	docs := idx.Get("hello")
+	expectedHello := map[int]int{1: 2, 2: 1}
+	if !reflect.DeepEqual(docs, expectedHello) {
+		t.Errorf("expected %v, got %v", expectedHello, docs)
 	}
 
-	if docs := idx.Get("world"); !reflect.DeepEqual(docs, []int{1}) {
-		t.Errorf("expected [1], got %v", docs)
-	}
-
-	idx.Add("hello", 1)
-	if docs := idx.Get("hello"); !reflect.DeepEqual(docs, []int{1, 2}) {
-		t.Errorf("expected [1, 2] after duplicate add, got %v", docs)
+	docsWorld := idx.Get("world")
+	expectedWorld := map[int]int{1: 1}
+	if !reflect.DeepEqual(docsWorld, expectedWorld) {
+		t.Errorf("expected %v, got %v", expectedWorld, docsWorld)
 	}
 }

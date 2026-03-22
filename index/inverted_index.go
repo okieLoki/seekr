@@ -4,46 +4,44 @@ import "sync"
 
 type InvertedIndex struct {
 	mu    sync.RWMutex
-	Index map[string][]int
+	Index map[string]map[int]int
 }
 
 func New() *InvertedIndex {
 	return &InvertedIndex{
-		Index: make(map[string][]int),
+		Index: make(map[string]map[int]int),
 	}
 }
 
 func (i *InvertedIndex) Add(word string, docId int) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	docs := i.Index[word]
 
-	for _, id := range docs {
-		if id == docId {
-			return
-		}
+	if i.Index[word] == nil {
+		i.Index[word] = make(map[int]int)
 	}
-
-	i.Index[word] = append(docs, docId)
+	i.Index[word][docId]++
 }
 
-func (i *InvertedIndex) Get(word string) []int {
+func (i *InvertedIndex) Get(word string) map[int]int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
 
+	matchDocs := make(map[int]int)
+
 	// Exact match first
 	if docs, ok := i.Index[word]; ok {
-		return docs
+		for id, freq := range docs {
+			matchDocs[id] = freq
+		}
+		return matchDocs
 	}
 
 	// Fuzzy search (Levenshtein distance <= 2)
-	var matchDocs []int
 	for dictWord, docs := range i.Index {
 		if levenshtein(word, dictWord) <= 2 {
-			for _, id := range docs {
-				if !contains(matchDocs, id) {
-					matchDocs = append(matchDocs, id)
-				}
+			for id, freq := range docs {
+				matchDocs[id] += freq
 			}
 		}
 	}
