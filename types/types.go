@@ -1,8 +1,24 @@
 package types
 
+import "encoding/json"
+
 type IndexRequest struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
+}
+
+type BulkIndexItem struct {
+	ID   string          `json:"id"`
+	Text string          `json:"text"`
+	Raw  json.RawMessage `json:"-"`
+}
+
+type BulkIndexRequest []json.RawMessage
+
+type BulkIndexResult struct {
+	Indexed int      `json:"indexed"`
+	Skipped int      `json:"skipped"`
+	Errors  []string `json:"errors,omitempty"`
 }
 
 type UpdateRequest struct {

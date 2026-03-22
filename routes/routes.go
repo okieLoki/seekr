@@ -12,6 +12,7 @@ func SetupRouter(c *controllers.SearchController) *http.ServeMux {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/index", c.HandleIndex)
+	router.HandleFunc("/bulk-index", c.HandleBulkIndex)
 	router.HandleFunc("/search", c.HandleSearch)
 	router.HandleFunc("/api/stats", c.HandleStats)
 	router.HandleFunc("/api/documents", c.HandleDocuments)

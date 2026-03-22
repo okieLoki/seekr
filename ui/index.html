@@ -3,86 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seekr Enterprise</title>
+    <title>Seekr</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="logo">Seekr Database</div>
-            <button id="openAddModalBtn" class="btn btn-primary">Add Document</button>
-        </div>
-    </nav>
 
-    <main class="container">
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-title">Total Documents</div>
-                <div class="stat-value" id="statTotalDocs">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-title">Indexed Tokens</div>
-                <div class="stat-value" id="statTotalTokens">0</div>
+<aside class="sidebar">
+    <div class="sidebar-logo">
+        <span class="logo-mark">S</span>
+        <span class="logo-text">Seekr</span>
+    </div>
+    <div class="sidebar-body">
+        <div>
+            <div class="sidebar-group-label">Database</div>
+            <div class="sidebar-item active">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                seekr.db
             </div>
         </div>
-
-        <div class="card table-card">
-            <div class="table-header">
-                <h3>Document Explorer</h3>
-                <div style="flex-grow:1; max-width: 400px; margin-left: 1.5rem;">
-                    <input type="text" id="searchInput" class="input-lg" placeholder="Search across documents...">
-                </div>
-                <div class="pagination-controls" style="margin-left:auto;">
-                    <button id="prevPage" class="btn btn-secondary btn-sm" disabled>Previous</button>
-                    <span id="pageInfo" class="text-sm font-medium">Page 1</span>
-                    <button id="nextPage" class="btn btn-secondary btn-sm">Next</button>
-                </div>
-            </div>
-            
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th width="20%">Doc ID</th>
-                        <th width="65%">Content Snippet</th>
-                        <th width="15%">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="docsTableBody">
-                    <!-- Rows populated via JS -->
-                </tbody>
-            </table>
+        <div>
+            <div class="sidebar-group-label">Statistics</div>
+            <div class="stat-pair"><span class="stat-pair-label">Documents</span><span class="stat-pair-val" id="statTotalDocs">—</span></div>
+            <div class="stat-pair"><span class="stat-pair-label">Indexed Tokens</span><span class="stat-pair-val" id="statTotalTokens">—</span></div>
         </div>
-    </main>
+    </div>
+    <div class="sidebar-footer">
+        <button id="openAddModalBtn" class="sidebar-btn primary">+ Add Document</button>
+        <button id="openBulkModalBtn" class="sidebar-btn ghost">Bulk Import</button>
+    </div>
+</aside>
 
-    <!-- Add Modal -->
-    <dialog id="addModal" class="modal">
-        <div class="modal-content">
+<main class="main">
+    <header class="topbar">
+        <div class="breadcrumbs">
+            <span class="bc-seg">seekr.db</span>
+            <span class="bc-sep">/</span>
+            <span class="bc-active">documents</span>
+        </div>
+        <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="searchInput" type="text" placeholder="Search documents…" autocomplete="off">
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <span class="doc-range" id="docRange">Loading…</span>
+        <div class="pager">
+            <select id="perPageSelect" class="per-page-select" title="Results per page">
+                <option value="10">10 / page</option>
+                <option value="20" selected>20 / page</option>
+                <option value="50">50 / page</option>
+            </select>
+            <div class="pager-sep"></div>
+            <button id="prevPage" class="pager-btn" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span id="pageLabel" class="page-label">Page 1</span>
+            <button id="nextPage" class="pager-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <div id="docList" class="doc-list"></div>
+</main>
+
+<!-- Add Modal -->
+<dialog id="addModal" class="modal">
+    <div class="modal-inner">
+        <div class="modal-header">
             <h3>Add Document</h3>
-            <p class="text-sm" style="color:var(--text-secondary);margin-top:0.5rem;">Document ID: <span id="addDocIdLabel" class="font-medium code-font" style="color:var(--brand);"></span></p>
-            <textarea id="addDocText" rows="6" class="mt-4" placeholder="Enter text payload to be indexed..."></textarea>
-            <div class="modal-actions">
-                <button id="cancelAddBtn" class="btn btn-secondary">Cancel</button>
-                <button id="indexDocBtn" class="btn btn-primary">Index Request</button>
-            </div>
+            <button id="cancelAddBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
-    </dialog>
-
-    <!-- Edit Modal -->
-    <dialog id="editModal" class="modal">
-        <div class="modal-content">
-            <h3>Edit Document <span id="editDocIdLabel" class="code-font" style="color:var(--brand);font-size:0.9rem;"></span></h3>
-            <textarea id="editDocText" rows="6" class="mt-4"></textarea>
-            <div class="modal-actions">
-                <button id="cancelEditBtn" class="btn btn-secondary">Cancel</button>
-                <button id="saveEditBtn" class="btn btn-primary">Save Changes</button>
-            </div>
+        <div class="modal-meta">
+            <span class="meta-label">Document ID</span>
+            <code id="addDocIdLabel" class="meta-code"></code>
         </div>
-    </dialog>
+        <div class="editor-wrap">
+            <textarea id="addDocText" rows="10" placeholder="Enter text, JSON, YAML, TOML, XML, or HTML…"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button id="indexDocBtn" class="btn-primary">Index Document</button>
+        </div>
+    </div>
+</dialog>
 
-    <div id="toast" class="toast">Action Complete</div>
-    <script src="app.js"></script>
+<!-- Bulk Modal -->
+<dialog id="bulkModal" class="modal">
+    <div class="modal-inner">
+        <div class="modal-header">
+            <h3>Bulk Import</h3>
+            <button id="cancelBulkBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <p class="modal-hint">Paste a JSON array. Each item may include <code>"id"</code> and <code>"text"</code>, or be any arbitrary object — the whole object will be indexed.</p>
+        <div class="editor-wrap">
+            <textarea id="bulkDocText" rows="14" placeholder='[&#10;  { "text": "plain text" },&#10;  { "Title": "Avatar", "Plot": "…" }&#10;]'></textarea>
+        </div>
+        <div class="modal-footer">
+            <button id="submitBulkBtn" class="btn-primary">Import All</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- Edit Modal -->
+<dialog id="editModal" class="modal">
+    <div class="modal-inner">
+        <div class="modal-header">
+            <h3>Edit Document</h3>
+            <button id="cancelEditBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div class="modal-meta">
+            <span class="meta-label">Document ID</span>
+            <code id="editDocIdLabel" class="meta-code"></code>
+        </div>
+        <div class="editor-wrap">
+            <textarea id="editDocText" rows="12"></textarea>
+        </div>
+        <div class="modal-footer">
+            <button id="saveEditBtn" class="btn-primary">Save Changes</button>
+        </div>
+    </div>
+</dialog>
+
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
 </body>
 </html>

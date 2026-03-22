@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"seekr/db"
+	"seekr/parser"
 	"seekr/tokenizer"
 	"seekr/types"
 )
@@ -24,7 +25,9 @@ func (e *Engine) AddDocument(docId string, text string) error {
 		return errors.New("empty document")
 	}
 
-	words := tokenizer.Tokenizer(text)
+	// Extract only the text content (handles JSON/YAML/TOML/XML/HTML/plain)
+	extracted := parser.ExtractText(text)
+	words := tokenizer.Tokenizer(extracted)
 	err := e.Store.SaveDocument(docId, text, words)
 	if err != nil {
 		return err
@@ -162,8 +165,8 @@ func (e *Engine) UpdateDocument(docId string, newText string) error {
 		return errors.New("document not found")
 	}
 
-	oldWords := tokenizer.Tokenizer(oldText)
-	newWords := tokenizer.Tokenizer(newText)
+	oldWords := tokenizer.Tokenizer(parser.ExtractText(oldText))
+	newWords := tokenizer.Tokenizer(parser.ExtractText(newText))
 
 	err = e.Store.UpdateDocument(docId, newText, oldWords, newWords)
 	if err == nil {

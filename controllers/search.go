@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -128,4 +130,59 @@ func (c *SearchController) HandleUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (c *SearchController) HandleBulkIndex(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var rawItems []json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&rawItems); err != nil {
+		http.Error(w, "Invalid JSON array", http.StatusBadRequest)
+		return
+	}
+
+	result := types.BulkIndexResult{}
+	for i, raw := range rawItems {
+		// Try to extract optional id and text fields
+		var item struct {
+			ID   string `json:"id"`
+			Text string `json:"text"`
+		}
+		json.Unmarshal(raw, &item)
+
+		id := item.ID
+		if id == "" {
+			id = newUUID()
+		}
+
+		// If no text field, use the entire JSON object as the document text
+		text := item.Text
+		if text == "" {
+			text = string(raw)
+		}
+
+		if err := c.engine.AddDocument(id, text); err != nil {
+			result.Skipped++
+			result.Errors = append(result.Errors, fmt.Sprintf("item %d (%s): %s", i, id, err.Error()))
+		} else {
+			result.Indexed++
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(result)
+}
+
+// newUUID generates a random UUID v4 using crypto/rand.
+func newUUID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	b[6] = (b[6] & 0x0f) | 0x40
+	b[8] = (b[8] & 0x3f) | 0x80
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
