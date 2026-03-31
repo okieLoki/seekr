@@ -4,6 +4,10 @@ import { renderBoostRows } from './boost.js';
 import { getBoosts } from './boost.js';
 import { renderJsonDocument } from './jsonview.js';
 
+function buildDocBody(text, isJSON) {
+    return isJSON ? renderJsonDocument(text) : `<pre class="json-fallback">${esc(text)}</pre>`;
+}
+
 function updateFieldSuggestions(docs) {
     const fields = new Set(state.knownFields);
     docs.forEach(doc => {
@@ -53,9 +57,14 @@ function buildCard(doc) {
             </div>
             <div class="doc-head-actions"><button class="doc-edit-btn">Edit</button></div>
         </div>
-        <div class="doc-body">${isJSON ? renderJsonDocument(doc.text) : `<pre class="json-fallback">${esc(doc.text)}</pre>`}</div>`;
+        <div class="doc-body"></div>`;
+    const bodyEl = card.querySelector('.doc-body');
     card.querySelector('.doc-head').addEventListener('click', e => {
         if (e.target.closest('.doc-head-actions')) return;
+        if (!card.classList.contains('expanded') && !bodyEl.dataset.rendered) {
+            bodyEl.innerHTML = buildDocBody(doc.text, isJSON);
+            bodyEl.dataset.rendered = 'true';
+        }
         card.classList.toggle('expanded');
     });
     card.querySelector('.doc-edit-btn').addEventListener('click', e => {
@@ -71,30 +80,69 @@ function buildCard(doc) {
 function renderDocs(docs) {
     dom.docList.innerHTML = '';
     if (!docs.length) { dom.docList.innerHTML = '<div class="empty-state">No documents found.</div>'; return; }
-    docs.forEach(d => dom.docList.appendChild(buildCard(d)));
+    const fragment = document.createDocumentFragment();
+    docs.forEach(d => fragment.appendChild(buildCard(d)));
+    dom.docList.appendChild(fragment);
+}
+
+function abortRequest(key) {
+    const current = state[key];
+    if (current) {
+        current.abort();
+    }
+    const controller = new AbortController();
+    state[key] = controller;
+    return controller;
 }
 
 export async function fetchStats() {
     if (!state.activeCollection) return;
+    const controller = abortRequest('statsAbortController');
+    const activeCollection = state.activeCollection;
     try {
-        const d = await fetch(`/api/stats${collectionParam(state.activeCollection)}`).then(r => r.json());
+        const res = await fetch(`/api/stats${collectionParam(activeCollection)}`, { signal: controller.signal });
+        const d = await res.json();
+        if (state.activeCollection !== activeCollection) return;
         dom.statTotalDocs.textContent = d.totalDocs.toLocaleString();
         dom.statTotalTokens.textContent = d.totalLength.toLocaleString();
-    } catch { }
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            return;
+        }
+    } finally {
+        if (state.statsAbortController === controller) {
+            state.statsAbortController = null;
+        }
+    }
 }
 
 export async function fetchDocs(p = 1) {
     if (!state.activeCollection) return;
-    const param = collectionParam(state.activeCollection);
-    const d = await fetch(`/api/documents${param}&page=${p}&limit=${state.limit}`).then(r => r.json());
-    const docs = d.documents || [];
-    renderDocs(docs);
-    updateFieldSuggestions(docs);
-    const s = (p - 1) * state.limit + 1, e = Math.min(p * state.limit, d.total);
-    dom.docRange.textContent = `${s}–${e} of ${d.total.toLocaleString()} documents`;
-    dom.pageLabel.textContent = `Page ${p}`;
-    dom.prevPage.disabled = p <= 1;
-    dom.nextPage.disabled = p * state.limit >= d.total;
+    const controller = abortRequest('docsAbortController');
+    const activeCollection = state.activeCollection;
+    const param = collectionParam(activeCollection);
+    try {
+        const res = await fetch(`/api/documents${param}&page=${p}&limit=${state.limit}`, { signal: controller.signal });
+        const d = await res.json();
+        if (state.activeCollection !== activeCollection) return;
+        const docs = d.documents || [];
+        renderDocs(docs);
+        updateFieldSuggestions(docs);
+        const s = d.total ? (p - 1) * state.limit + 1 : 0;
+        const e = Math.min(p * state.limit, d.total || 0);
+        dom.docRange.textContent = d.total ? `${s}–${e} of ${d.total.toLocaleString()} documents` : '0 documents';
+        dom.pageLabel.textContent = `Page ${p}`;
+        dom.prevPage.disabled = p <= 1;
+        dom.nextPage.disabled = p * state.limit >= d.total;
+    } catch (err) {
+        if (err.name !== 'AbortError') {
+            showToast('Unable to load documents right now.', true);
+        }
+    } finally {
+        if (state.docsAbortController === controller) {
+            state.docsAbortController = null;
+        }
+    }
 }
 
 export function refresh() {
@@ -108,26 +156,42 @@ export function triggerSearch() {
     const q = dom.searchInput.value.trim();
     if (!q) {
         state.isSearch = false;
+        if (state.searchAbortController) {
+            state.searchAbortController.abort();
+            state.searchAbortController = null;
+        }
         dom.prevPage.disabled = dom.nextPage.disabled = false;
         refresh();
         return;
     }
     state.isSearch = true;
     state.debounce = setTimeout(async () => {
+        const controller = abortRequest('searchAbortController');
+        const activeCollection = state.activeCollection;
         try {
             const body = { q, boosts: getBoosts() };
-            const res = await fetch(`/search${collectionParam(state.activeCollection)}`, {
+            const res = await fetch(`/search${collectionParam(activeCollection)}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: JSON.stringify(body),
+                signal: controller.signal
             });
             const d = await res.json();
+            if (state.activeCollection !== activeCollection || dom.searchInput.value.trim() !== q) return;
             const results = d.results || [];
             renderDocs(results);
             updateFieldSuggestions(results);
             dom.docRange.textContent = `${results.length} result${results.length !== 1 ? 's' : ''}`;
             dom.pageLabel.textContent = 'Search';
             dom.prevPage.disabled = dom.nextPage.disabled = true;
-        } catch { }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                showToast('Search failed. Please try again.', true);
+            }
+        } finally {
+            if (state.searchAbortController === controller) {
+                state.searchAbortController = null;
+            }
+        }
     }, 280);
 }
 

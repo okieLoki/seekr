@@ -12,6 +12,9 @@ export const state = {
     importEventSource: null,
     importStreamCollection: null,
     importPanelDismissed: false,
+    docsAbortController: null,
+    searchAbortController: null,
+    statsAbortController: null,
 };
 
 const $ = id => document.getElementById(id);

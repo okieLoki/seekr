@@ -115,6 +115,7 @@ export async function fetchCollections() {
     if (!state.activeCollection) {
         return switchCollection(cols[0].name);
     }
+    const fragment = document.createDocumentFragment();
     cols.forEach(c => {
         const el = document.createElement('div');
         el.className = 'collection-item' + (c.name === state.activeCollection ? ' active' : '');
@@ -128,8 +129,9 @@ export async function fetchCollections() {
         el.querySelector('.coll-name').addEventListener('click', () => { switchCollection(c.name); closeSidebar(); });
         el.querySelector('.coll-icon').addEventListener('click', () => { switchCollection(c.name); closeSidebar(); });
         el.querySelector('.coll-menu-btn').addEventListener('click', e => { e.stopPropagation(); showCollMenu(c.name, e.currentTarget); });
-        dom.collectionList.appendChild(el);
+        fragment.appendChild(el);
     });
+    dom.collectionList.appendChild(fragment);
 }
 
 export async function switchCollection(name) {
