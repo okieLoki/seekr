@@ -1,4 +1,5 @@
 import { dom } from './state.js';
+import { logout } from './auth.js';
 
 export function openSidebar() {
     dom.sidebar.classList.add('open');
@@ -19,4 +20,9 @@ export function initSidebar() {
 
     const mq = window.matchMedia('(max-width: 900px)');
     mq.addEventListener('change', e => { if (!e.matches) closeSidebar(); });
+
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => logout());
+    }
 }

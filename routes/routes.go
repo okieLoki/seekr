@@ -6,6 +6,7 @@ import (
 
 	"seekr/controllers"
 	"seekr/docs"
+	"seekr/middleware"
 	"seekr/ui"
 
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -13,6 +14,9 @@ import (
 
 func SetupRouter(c *controllers.SearchController) *http.ServeMux {
 	router := http.NewServeMux()
+
+	router.HandleFunc("/api/login", middleware.HandleLogin)
+	router.HandleFunc("/api/logout", middleware.HandleLogout)
 
 	router.HandleFunc("/index", c.HandleIndex)
 	router.HandleFunc("/bulk-index", c.HandleBulkIndex)
@@ -49,7 +53,7 @@ func SetupRouter(c *controllers.SearchController) *http.ServeMux {
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
-		router.ServeHTTP(w, r)
+		middleware.Require(router).ServeHTTP(w, r)
 	})
 	return wrapped
 }
