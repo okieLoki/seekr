@@ -1029,7 +1029,7 @@ body {
 .doc-body {
     display: none;
     border-top: 1px solid var(--border);
-    background: #0f172a;
+    background: radial-gradient(circle at top left, #172554 0%, #0f172a 44%, #020617 100%);
     overflow: auto;
     max-height: 420px;
     -webkit-overflow-scrolling: touch;
@@ -1039,36 +1039,60 @@ body {
     display: block;
 }
 
-pre.json-view {
+.json-pretty,
+.json-fallback {
     font-family: var(--mono);
     font-size: 12.5px;
     line-height: 1.75;
     padding: 14px 18px;
-    white-space: pre;
     color: #e2e8f0;
 }
 
-.jk {
+.json-pretty {
+    display: grid;
+    gap: 1px;
+}
+
+.json-line {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+}
+
+.json-line-no {
+    color: rgba(148, 163, 184, 0.7);
+    text-align: right;
+    user-select: none;
+}
+
+.json-line-code {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.json-fallback {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.json-key {
     color: #93c5fd;
 }
 
-.js {
-    color: #6ee7b7;
+.json-string {
+    color: #86efac;
 }
 
-.jn {
+.json-number {
     color: #fca5a5;
 }
 
-.jb {
+.json-boolean {
     color: #c4b5fd;
 }
 
-.jl {
-    color: #6b7280;
-}
-
-.jp {
+.json-null {
     color: #94a3b8;
 }
 
@@ -1174,6 +1198,60 @@ pre.json-view {
     border: 1px solid var(--border);
     border-radius: 3px;
     padding: 1px 5px;
+}
+
+.bulk-tools {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 20px 0;
+    flex-wrap: wrap;
+}
+
+.file-picker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.file-picker:hover {
+    border-color: var(--accent-border);
+    background: var(--accent-light);
+}
+
+.bulk-char-count {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.bulk-char-count.danger {
+    color: #b45309;
+}
+
+.bulk-validation {
+    min-height: 18px;
+    padding: 8px 20px 0;
+    font-size: 12.5px;
+    color: var(--text-muted);
+}
+
+.bulk-validation.error {
+    color: #dc2626;
+}
+
+.bulk-validation.success {
+    color: #15803d;
 }
 
 .editor-wrap {
@@ -1475,7 +1553,8 @@ pre.json-view {
         font-size: 11.5px;
     }
 
-    pre.json-view {
+    .json-pretty,
+    .json-fallback {
         font-size: 11px;
         padding: 10px 12px;
     }

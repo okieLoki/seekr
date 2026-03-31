@@ -229,10 +229,18 @@
                 <div class="modal-meta">
                     <span class="meta-label">Collection</span><code id="bulkModalCollection" class="meta-code"></code>
                 </div>
-                <p class="modal-hint">Paste a JSON array. Items without <code>"text"</code> use the full object as body.
+                <p class="modal-hint">Paste a JSON array or load a <code>.json</code> file. Items without
+                    <code>"text"</code> use the full object as body.
                 </p>
+                <div class="bulk-tools">
+                    <label class="file-picker" for="bulkFileInput">Load JSON File</label>
+                    <input id="bulkFileInput" type="file" accept=".json,application/json" class="hidden">
+                    <span id="bulkCharCount" class="bulk-char-count">0 / 250,000 chars</span>
+                </div>
+                <p id="bulkValidation" class="bulk-validation" aria-live="polite"></p>
                 <div class="editor-wrap">
                     <textarea id="bulkDocText" rows="14"
+                        maxlength="250000"
                         placeholder='[&#10;  { "Title": "Avatar", "Plot": "…" }&#10;]'></textarea>
                 </div>
                 <div class="modal-footer">

@@ -13,6 +13,7 @@ import (
 )
 
 const maxImportErrors = 25
+const maxImportBodyBytes = 5 << 20
 
 type importSubscriber struct {
 	collection string
@@ -41,6 +42,8 @@ func (c *ImportController) HandleCreateImport(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxImportBodyBytes)
 
 	var rawItems []json.RawMessage
 	if err := json.NewDecoder(r.Body).Decode(&rawItems); err != nil {

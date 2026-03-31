@@ -1,7 +1,8 @@
 import { state, dom } from './state.js';
-import { esc, showToast, collectionParam, syntaxHL } from './utils.js';
+import { esc, showToast, collectionParam } from './utils.js';
 import { renderBoostRows } from './boost.js';
 import { getBoosts } from './boost.js';
+import { renderJsonDocument } from './jsonview.js';
 
 function updateFieldSuggestions(docs) {
     const fields = new Set(state.knownFields);
@@ -52,7 +53,7 @@ function buildCard(doc) {
             </div>
             <div class="doc-head-actions"><button class="doc-edit-btn">Edit</button></div>
         </div>
-        <div class="doc-body"><pre class="json-view">${syntaxHL(doc.text)}</pre></div>`;
+        <div class="doc-body">${isJSON ? renderJsonDocument(doc.text) : `<pre class="json-fallback">${esc(doc.text)}</pre>`}</div>`;
     card.querySelector('.doc-head').addEventListener('click', e => {
         if (e.target.closest('.doc-head-actions')) return;
         card.classList.toggle('expanded');
