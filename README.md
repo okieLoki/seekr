@@ -8,19 +8,9 @@ A BM25-powered full-text search engine with a persistent bbolt database, multi-f
 - **Persistent Storage** — documents and the inverted index live in a single `seekr.db` bbolt file; data survives restarts
 - **Multi-format Ingestion** — auto-detects format and extracts only human-readable text for indexing; raw payload is stored verbatim
 - **REST API** — six JSON endpoints covering all CRUD and search operations
-- **Dashboard UI** — MongoDB Compass-inspired web UI served at `http://localhost:8080`
+- **Dashboard UI** — web UI served at `http://localhost:8080`
 - **Swagger Docs** — interactive API explorer at `http://localhost:8080/swagger/`
 
-## Supported Document Formats
-
-| Format | Detection | Indexed content |
-|--------|-----------|-----------------|
-| JSON | Starts with `{` or `[` | All string values (keys, numbers, booleans skipped) |
-| HTML | Starts with `<` | All visible text nodes |
-| XML | Starts with `<` (fallback) | All `CharData` text nodes |
-| TOML | Has `key = value` lines | All string values |
-| YAML | Has `key: value` lines | All string values |
-| Plain text | Fallback | Passed through as-is |
 
 ## Quick Start
 

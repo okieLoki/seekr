@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,126 +10,231 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<aside class="sidebar">
-    <div class="sidebar-logo">
-        <span class="logo-mark">S</span>
-        <span class="logo-text">Seekr</span>
-    </div>
-    <div class="sidebar-body">
-        <div>
-            <div class="sidebar-group-label">Database</div>
-            <div class="sidebar-item active">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-                seekr.db
+    <!-- Mobile sidebar overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-mark">S</span>
+            <span class="logo-text">Seekr</span>
+            <button id="sidebarCloseBtn" class="sidebar-close-btn" title="Close sidebar">×</button>
+        </div>
+        <div class="sidebar-body">
+            <div class="sidebar-section">
+                <div class="sidebar-section-header">
+                    <span class="sidebar-label">Collections</span>
+                    <button id="newCollectionBtn" class="icon-btn" title="New collection">+</button>
+                </div>
+                <div id="collectionList" class="collection-list"></div>
+            </div>
+            <div class="sidebar-section">
+                <span class="sidebar-label">Stats</span>
+                <div class="stat-cards">
+                    <div class="stat-card">
+                        <div class="stat-card-icon stat-icon-docs">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-val" id="statTotalDocs">—</div>
+                            <div class="stat-card-label">Documents</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-icon stat-icon-tokens">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                        </div>
+                        <div class="stat-card-body">
+                            <div class="stat-card-val" id="statTotalTokens">—</div>
+                            <div class="stat-card-label">Indexed Tokens</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div>
-            <div class="sidebar-group-label">Statistics</div>
-            <div class="stat-pair"><span class="stat-pair-label">Documents</span><span class="stat-pair-val" id="statTotalDocs">—</span></div>
-            <div class="stat-pair"><span class="stat-pair-label">Indexed Tokens</span><span class="stat-pair-val" id="statTotalTokens">—</span></div>
+        <div class="sidebar-footer">
+            <button id="openAddModalBtn" class="sidebar-btn primary">+ Add Document</button>
+            <button id="openBulkModalBtn" class="sidebar-btn ghost">Bulk Import</button>
         </div>
-    </div>
-    <div class="sidebar-footer">
-        <button id="openAddModalBtn" class="sidebar-btn primary">+ Add Document</button>
-        <button id="openBulkModalBtn" class="sidebar-btn ghost">Bulk Import</button>
-    </div>
-</aside>
+    </aside>
 
-<main class="main">
-    <header class="topbar">
-        <div class="breadcrumbs">
-            <span class="bc-seg">seekr.db</span>
-            <span class="bc-sep">/</span>
-            <span class="bc-active">documents</span>
-        </div>
-        <div class="search-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            <input id="searchInput" type="text" placeholder="Search documents…" autocomplete="off">
-        </div>
-    </header>
+    <main class="main">
+        <!-- Topbar: hamburger + breadcrumb + search -->
+        <header class="topbar">
+            <!-- Row 1 on mobile: hamburger + breadcrumb + boost btn -->
+            <div class="topbar-row1">
+                <button id="menuBtn" class="menu-btn" title="Open menu" aria-label="Open sidebar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </button>
+                <div class="breadcrumbs">
+                    <span class="bc-seg">seekr.db</span>
+                    <span class="bc-sep">/</span>
+                    <span id="bcCollection" class="bc-active">default</span>
+                </div>
+            </div>
+            <div class="search-wrap">
+                <div class="search-box">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.35-4.35" />
+                    </svg>
+                    <input id="searchInput" type="text" placeholder="Search documents…" autocomplete="off">
+                </div>
+                <button id="boostToggleBtn" class="boost-toggle-btn" title="Field boosts">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    <span class="boost-label">Boost</span>
+                    <span id="boostBadge" class="boost-badge" style="display:none">0</span>
+                </button>
+            </div>
+        </header>
 
-    <div class="toolbar">
-        <span class="doc-range" id="docRange">Loading…</span>
-        <div class="pager">
-            <select id="perPageSelect" class="per-page-select" title="Results per page">
-                <option value="10">10 / page</option>
-                <option value="20" selected>20 / page</option>
-                <option value="50">50 / page</option>
-            </select>
-            <div class="pager-sep"></div>
-            <button id="prevPage" class="pager-btn" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-            </button>
-            <span id="pageLabel" class="page-label">Page 1</span>
-            <button id="nextPage" class="pager-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-            </button>
+        <!-- Boost drawer — in-flow, not absolute -->
+        <div id="boostDrawer" class="boost-drawer" style="display:none">
+            <div class="boost-drawer-inner">
+                <span class="boost-drawer-label">Field Boosts</span>
+                <span class="boost-drawer-hint">Give specific JSON fields a higher score multiplier</span>
+                <div id="boostRows" class="boost-rows-inline"></div>
+                <button id="addBoostRowBtn" class="add-boost-btn">+ Add Field</button>
+            </div>
         </div>
-    </div>
 
-    <div id="docList" class="doc-list"></div>
-</main>
+        <!-- datalist for field name suggestions -->
+        <datalist id="fieldSuggestions"></datalist>
 
-<!-- Add Modal -->
-<dialog id="addModal" class="modal">
-    <div class="modal-inner">
-        <div class="modal-header">
-            <h3>Add Document</h3>
-            <button id="cancelAddBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <!-- Toolbar: count + pagination -->
+        <div class="toolbar">
+            <span class="doc-range" id="docRange">Loading…</span>
+            <div class="pager">
+                <select id="perPageSelect" class="per-page-select">
+                    <option value="10">10 / page</option>
+                    <option value="20" selected>20 / page</option>
+                    <option value="50">50 / page</option>
+                </select>
+                <div class="pager-sep"></div>
+                <button id="prevPage" class="pager-btn" disabled>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+                <span id="pageLabel" class="page-label">Page 1</span>
+                <button id="nextPage" class="pager-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                </button>
+            </div>
         </div>
-        <div class="modal-meta">
-            <span class="meta-label">Document ID</span>
-            <code id="addDocIdLabel" class="meta-code"></code>
-        </div>
-        <div class="editor-wrap">
-            <textarea id="addDocText" rows="10" placeholder="Enter text, JSON, YAML, TOML, XML, or HTML…"></textarea>
-        </div>
-        <div class="modal-footer">
-            <button id="indexDocBtn" class="btn-primary">Index Document</button>
-        </div>
-    </div>
-</dialog>
 
-<!-- Bulk Modal -->
-<dialog id="bulkModal" class="modal">
-    <div class="modal-inner">
-        <div class="modal-header">
-            <h3>Bulk Import</h3>
-            <button id="cancelBulkBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-        </div>
-        <p class="modal-hint">Paste a JSON array. Each item may include <code>"id"</code> and <code>"text"</code>, or be any arbitrary object — the whole object will be indexed.</p>
-        <div class="editor-wrap">
-            <textarea id="bulkDocText" rows="14" placeholder='[&#10;  { "text": "plain text" },&#10;  { "Title": "Avatar", "Plot": "…" }&#10;]'></textarea>
-        </div>
-        <div class="modal-footer">
-            <button id="submitBulkBtn" class="btn-primary">Import All</button>
-        </div>
-    </div>
-</dialog>
+        <div id="docList" class="doc-list"></div>
+    </main>
 
-<!-- Edit Modal -->
-<dialog id="editModal" class="modal">
-    <div class="modal-inner">
-        <div class="modal-header">
-            <h3>Edit Document</h3>
-            <button id="cancelEditBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <!-- Add Modal -->
+    <dialog id="addModal" class="modal">
+        <div class="modal-inner">
+            <div class="modal-header">
+                <h3>Add Document</h3>
+                <button id="cancelAddBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="modal-meta">
+                <span class="meta-label">Collection</span><code id="addModalCollection" class="meta-code"></code>
+                <span class="meta-label" style="margin-left:12px">ID</span><code id="addDocIdLabel"
+                    class="meta-code"></code>
+            </div>
+            <div class="editor-wrap">
+                <textarea id="addDocText" rows="10" placeholder="Paste JSON or plain text…"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="indexDocBtn" class="btn-primary">Index Document</button>
+            </div>
         </div>
-        <div class="modal-meta">
-            <span class="meta-label">Document ID</span>
-            <code id="editDocIdLabel" class="meta-code"></code>
-        </div>
-        <div class="editor-wrap">
-            <textarea id="editDocText" rows="12"></textarea>
-        </div>
-        <div class="modal-footer">
-            <button id="saveEditBtn" class="btn-primary">Save Changes</button>
-        </div>
-    </div>
-</dialog>
+    </dialog>
 
-<div id="toast" class="toast"></div>
-<script src="app.js"></script>
+    <!-- Bulk Modal -->
+    <dialog id="bulkModal" class="modal">
+        <div class="modal-inner">
+            <div class="modal-header">
+                <h3>Bulk Import</h3>
+                <button id="cancelBulkBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="modal-meta">
+                <span class="meta-label">Collection</span><code id="bulkModalCollection" class="meta-code"></code>
+            </div>
+            <p class="modal-hint">Paste a JSON array. Items without <code>"text"</code> use the full object as body.</p>
+            <div class="editor-wrap">
+                <textarea id="bulkDocText" rows="14"
+                    placeholder='[&#10;  { "Title": "Avatar", "Plot": "…" }&#10;]'></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="submitBulkBtn" class="btn-primary">Import All</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Edit Modal -->
+    <dialog id="editModal" class="modal">
+        <div class="modal-inner">
+            <div class="modal-header">
+                <h3>Edit Document</h3>
+                <button id="cancelEditBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="modal-meta">
+                <span class="meta-label">ID</span><code id="editDocIdLabel" class="meta-code"></code>
+            </div>
+            <div class="editor-wrap">
+                <textarea id="editDocText" rows="12"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="saveEditBtn" class="btn-primary">Save Changes</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- New Collection Modal -->
+    <dialog id="newCollectionModal" class="modal modal-sm">
+        <div class="modal-inner">
+            <div class="modal-header">
+                <h3>New Collection</h3>
+                <button id="cancelNewCollectionBtn" class="close-btn"><svg width="16" height="16" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg></button>
+            </div>
+            <div class="editor-wrap">
+                <input id="newCollectionName" type="text" class="text-input" placeholder="e.g. movies"
+                    autocomplete="off">
+            </div>
+            <div class="modal-footer">
+                <button id="createCollectionBtn" class="btn-primary">Create</button>
+            </div>
+        </div>
+    </dialog>
+
+    <div id="toast" class="toast"></div>
+    <script type="module" src="app.js"></script>
 </body>
+
 </html>

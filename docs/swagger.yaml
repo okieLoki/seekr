@@ -1,251 +1,340 @@
+swagger: "2.0"
+info:
+  title: Seekr API
+  description: A BM25-powered full-text search engine with persistent bbolt storage. Supports plain text and JSON document ingestion with field-weighted search.
+  version: "1.0"
+  contact:
+    name: Seekr
+  license:
+    name: MIT
+host: localhost:8080
 basePath: /
+
 definitions:
-  types.BulkIndexResult:
+  BoostMap:
+    type: object
+    description: Maps JSON field names to score multiplier weights (e.g. {"Title":2.0,"Plot":1.5})
+    additionalProperties:
+      type: number
+      format: double
+
+  Document:
+    type: object
     properties:
-      errors:
-        items:
-          type: string
-        type: array
+      id:
+        type: string
+      text:
+        type: string
+
+  IndexRequest:
+    type: object
+    required:
+      - text
+    properties:
+      id:
+        type: string
+        description: Optional document ID; auto-generated UUID if omitted
+      text:
+        type: string
+        description: Raw document content (plain text or JSON)
+
+  UpdateRequest:
+    type: object
+    required:
+      - text
+    properties:
+      text:
+        type: string
+        description: New document content
+
+  BulkIndexResult:
+    type: object
+    properties:
       indexed:
         type: integer
       skipped:
         type: integer
-    type: object
-  types.Document:
-    properties:
-      id:
-        type: string
-      text:
-        type: string
-    type: object
-  types.IndexRequest:
-    properties:
-      id:
-        type: string
-      text:
-        type: string
-    type: object
-  types.PaginatedDocsResponse:
-    properties:
-      documents:
-        items:
-          $ref: '#/definitions/types.Document'
+      errors:
         type: array
-      limit:
-        type: integer
-      page:
-        type: integer
-      total:
-        type: integer
+        items:
+          type: string
+
+  SearchRequest:
     type: object
-  types.SearchResponse:
+    required:
+      - q
+    properties:
+      q:
+        type: string
+        description: Search query string
+      boosts:
+        $ref: "#/definitions/BoostMap"
+
+  SearchResponse:
+    type: object
     properties:
       results:
-        items:
-          $ref: '#/definitions/types.Document'
         type: array
+        items:
+          $ref: "#/definitions/Document"
+
+  StatsResponse:
     type: object
-  types.StatsResponse:
     properties:
       totalDocs:
         type: integer
       totalLength:
         type: integer
+
+  PaginatedDocsResponse:
     type: object
-  types.UpdateRequest:
     properties:
-      text:
-        type: string
+      documents:
+        type: array
+        items:
+          $ref: "#/definitions/Document"
+      total:
+        type: integer
+      page:
+        type: integer
+      limit:
+        type: integer
+
+  Collection:
     type: object
-host: localhost:8080
-info:
-  contact:
-    name: Seekr
-  description: A BM25-powered full-text search engine with persistent bbolt storage.
-    Supports plain text, JSON, YAML, TOML, XML, and HTML document ingestion.
-  license:
-    name: MIT
-  title: Seekr API
-  version: "1.0"
-paths:
-  /api/documents:
-    get:
-      description: Returns a paginated list of all stored documents with their raw
-        content.
-      parameters:
-      - description: 'Page number (default: 1)'
-        in: query
-        name: page
-        type: integer
-      - description: 'Page size (default: 10, max recommended: 50)'
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/types.PaginatedDocsResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: List documents
-      tags:
-      - documents
-  /api/documents/update:
-    put:
-      consumes:
-      - application/json
-      description: Replaces the stored content of a document and re-indexes it. The
-        BM25 index is updated atomically — old tokens are removed and new ones are
-        scored.
-      parameters:
-      - description: Document ID
-        in: query
-        name: id
-        required: true
+    properties:
+      name:
         type: string
-      - description: New document content
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/types.UpdateRequest'
-      produces:
-      - text/plain
-      responses:
-        "200":
-          description: OK
-          schema:
-            type: string
-        "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Update a document
-      tags:
-      - documents
-  /api/stats:
-    get:
-      description: Returns the total number of indexed documents and the total number
-        of indexed tokens across all documents.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/types.StatsResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Get database stats
-      tags:
-      - stats
-  /bulk-index:
-    post:
-      consumes:
-      - application/json
-      description: Accepts a JSON array of documents. Each item may include optional
-        "id" and "text" fields. If "id" is omitted a UUID v4 is auto-generated. If
-        "text" is omitted the entire JSON object is used as the document body and
-        parsed by the format-aware extractor.
-      parameters:
-      - description: Array of documents to index
-        in: body
-        name: body
-        required: true
-        schema:
-          items:
-            items:
-              format: int32
-              type: integer
-            type: array
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/types.BulkIndexResult'
-        "400":
-          description: Invalid JSON array
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Bulk index documents
-      tags:
-      - documents
+      totalDocs:
+        type: integer
+
+  CollectionsResponse:
+    type: object
+    properties:
+      collections:
+        type: array
+        items:
+          $ref: "#/definitions/Collection"
+
+  CreateCollectionRequest:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+
+paths:
   /index:
     post:
+      summary: Index a document
+      description: Stores and indexes a document. Accepts plain text or JSON; only string values are indexed.
+      tags:
+        - documents
       consumes:
-      - application/json
-      description: Stores and indexes a document by its ID. Accepts plain text, JSON,
-        YAML, TOML, XML, or HTML — only string values are indexed, the raw payload
-        is stored verbatim.
-      parameters:
-      - description: Document to index
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/types.IndexRequest'
+        - application/json
       produces:
-      - text/plain
+        - text/plain
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/IndexRequest"
       responses:
         "201":
-          description: Created
-          schema:
-            type: string
+          description: Document created
         "400":
-          description: Bad Request
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
-      summary: Index a document
+          description: Bad request
+
+  /bulk-index:
+    post:
+      summary: Bulk index documents
+      description: Accepts a JSON array of documents. Items without a "text" field use the entire object as the document body.
       tags:
-      - documents
-  /search:
-    get:
-      description: Runs a BM25 full-text search with fuzzy matching over all indexed
-        documents. Results are ranked by relevance score.
-      parameters:
-      - description: Search query
-        in: query
-        name: q
-        required: true
-        type: string
+        - documents
+      consumes:
+        - application/json
       produces:
-      - application/json
+        - application/json
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+        - name: body
+          in: body
+          required: true
+          description: Array of document objects
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/IndexRequest"
       responses:
         "200":
-          description: OK
+          description: Bulk index result
           schema:
-            $ref: '#/definitions/types.SearchResponse'
-        "400":
-          description: q parameter is required
-          schema:
-            type: string
-        "500":
-          description: Internal Server Error
-          schema:
-            type: string
+            $ref: "#/definitions/BulkIndexResult"
+
+  /search:
+    post:
       summary: Search documents
+      description: BM25 full-text search with fuzzy matching. Provide optional field boost weights to boost results by JSON field presence.
       tags:
-      - search
-swagger: "2.0"
+        - search
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/SearchRequest"
+      responses:
+        "200":
+          description: Search results ranked by BM25 score
+          schema:
+            $ref: "#/definitions/SearchResponse"
+        "400":
+          description: Bad request
+
+  /api/documents:
+    get:
+      summary: List documents
+      description: Returns a paginated list of all documents in a collection.
+      tags:
+        - documents
+      produces:
+        - application/json
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+        - name: page
+          in: query
+          description: "Page number (default: 1)"
+          type: integer
+        - name: limit
+          in: query
+          description: "Page size (default: 10)"
+          type: integer
+      responses:
+        "200":
+          description: Paginated document list
+          schema:
+            $ref: "#/definitions/PaginatedDocsResponse"
+
+  /api/documents/update:
+    put:
+      summary: Update a document
+      description: Replaces document content and atomically re-indexes it.
+      tags:
+        - documents
+      consumes:
+        - application/json
+      produces:
+        - text/plain
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+        - name: id
+          in: query
+          required: true
+          description: Document ID
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/UpdateRequest"
+      responses:
+        "200":
+          description: Document updated
+        "400":
+          description: Bad request
+
+  /api/stats:
+    get:
+      summary: Get collection stats
+      description: Returns total document count and total indexed token count for a collection.
+      tags:
+        - stats
+      produces:
+        - application/json
+      parameters:
+        - name: collection
+          in: query
+          description: "Collection name (default: default)"
+          type: string
+      responses:
+        "200":
+          description: Collection statistics
+          schema:
+            $ref: "#/definitions/StatsResponse"
+
+  /api/collections:
+    get:
+      summary: List collections
+      description: Returns all collections with their document counts.
+      tags:
+        - collections
+      produces:
+        - application/json
+      responses:
+        "200":
+          description: List of collections
+          schema:
+            $ref: "#/definitions/CollectionsResponse"
+
+    post:
+      summary: Create collection
+      description: Creates a new named collection (namespace) for documents.
+      tags:
+        - collections
+      consumes:
+        - application/json
+      produces:
+        - text/plain
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/CreateCollectionRequest"
+      responses:
+        "201":
+          description: Collection created
+        "400":
+          description: Bad request
+
+    delete:
+      summary: Delete collection
+      description: Permanently deletes a collection and all its indexed documents. Cannot delete "default".
+      tags:
+        - collections
+      produces:
+        - text/plain
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: Collection name
+          type: string
+      responses:
+        "200":
+          description: Collection deleted
+        "400":
+          description: Bad request

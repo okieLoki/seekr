@@ -10,20 +10,24 @@ import (
 	"seekr/types"
 )
 
+const testCollection = "test"
+
 func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
 	t.Helper()
 
 	tmpDb := t.TempDir() + "/test_seekr.db"
 	store, err := db.NewStore(tmpDb)
 	if err != nil {
-		t.Fatalf("Failed to open localized DB: %v", err)
+		t.Fatalf("Failed to open DB: %v", err)
 	}
-
-	t.Cleanup(func() {
-		store.Close()
-	})
+	t.Cleanup(func() { store.Close() })
 
 	engine := services.NewEngine(store)
+
+	// Create test collection
+	if err := engine.CreateCollection(testCollection); err != nil {
+		t.Fatalf("Failed to create collection: %v", err)
+	}
 
 	data, err := os.ReadFile(filepath)
 	if err != nil {
@@ -36,7 +40,7 @@ func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
 	}
 
 	for _, doc := range docs {
-		if err := engine.AddDocument(doc.ID, doc.Text); err != nil {
+		if err := engine.AddDocument(testCollection, doc.ID, doc.Text); err != nil {
 			t.Fatalf("Failed to add document ID %s: %v", doc.ID, err)
 		}
 	}
@@ -45,7 +49,7 @@ func loadEngineWithData(t *testing.T, filepath string) *services.Engine {
 
 func TestEngine_SingleWordSearch(t *testing.T) {
 	engine := loadEngineWithData(t, "data/docs.json")
-	result, err := engine.Search("galaxy")
+	result, err := engine.Search(testCollection, "galaxy", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,7 +60,7 @@ func TestEngine_SingleWordSearch(t *testing.T) {
 
 func TestEngine_BM25RankingMultipleWords(t *testing.T) {
 	engine := loadEngineWithData(t, "data/docs.json")
-	result, err := engine.Search("banana spaceship")
+	result, err := engine.Search(testCollection, "banana spaceship", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -67,7 +71,7 @@ func TestEngine_BM25RankingMultipleWords(t *testing.T) {
 
 func TestEngine_MissingWord(t *testing.T) {
 	engine := loadEngineWithData(t, "data/docs.json")
-	result, err := engine.Search("extraterrestrial")
+	result, err := engine.Search(testCollection, "extraterrestrial", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -78,7 +82,7 @@ func TestEngine_MissingWord(t *testing.T) {
 
 func TestEngine_StemmingMatch(t *testing.T) {
 	engine := loadEngineWithData(t, "data/docs.json")
-	result, err := engine.Search("spaceships")
+	result, err := engine.Search(testCollection, "spaceships", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -90,7 +94,7 @@ func TestEngine_StemmingMatch(t *testing.T) {
 func TestEngine_LargePayloadRegression(t *testing.T) {
 	engine := loadEngineWithData(t, "data/large_docs.json")
 
-	result, err := engine.Search("payload")
+	result, err := engine.Search(testCollection, "payload", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,7 +102,7 @@ func TestEngine_LargePayloadRegression(t *testing.T) {
 		t.Errorf("Search returned %d results for payload; expected 100", len(result))
 	}
 
-	result2, err := engine.Search("sequence 50")
+	result2, err := engine.Search(testCollection, "sequence 50", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

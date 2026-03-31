@@ -1,10 +1,3 @@
-// @title           Seekr API
-// @version         1.0
-// @description     A BM25-powered full-text search engine with persistent bbolt storage. Supports plain text, JSON, YAML, TOML, XML, and HTML document ingestion.
-// @contact.name    Seekr
-// @license.name    MIT
-// @host            localhost:8080
-// @BasePath        /
 package main
 
 import (
@@ -19,7 +12,6 @@ import (
 )
 
 func main() {
-	// Setup structured logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 

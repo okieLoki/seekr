@@ -7,12 +7,6 @@ type IndexRequest struct {
 	Text string `json:"text"`
 }
 
-type BulkIndexItem struct {
-	ID   string          `json:"id"`
-	Text string          `json:"text"`
-	Raw  json.RawMessage `json:"-"`
-}
-
 type BulkIndexRequest []json.RawMessage
 
 type BulkIndexResult struct {
@@ -25,13 +19,33 @@ type UpdateRequest struct {
 	Text string `json:"text"`
 }
 
+type Document struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+type BoostMap map[string]float64
+
+type SearchRequest struct {
+	Q      string   `json:"q"`
+	Boosts BoostMap `json:"boosts,omitempty"`
+}
+
 type SearchResponse struct {
 	Results []Document `json:"results"`
 }
 
-type Document struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
+type Collection struct {
+	Name      string `json:"name"`
+	TotalDocs int    `json:"totalDocs"`
+}
+
+type CollectionsResponse struct {
+	Collections []Collection `json:"collections"`
+}
+
+type CreateCollectionRequest struct {
+	Name string `json:"name"`
 }
 
 type StatsResponse struct {
