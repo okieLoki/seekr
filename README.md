@@ -1,16 +1,16 @@
 # Seekr
 
-A BM25-powered full-text search engine with a persistent bbolt database, multi-format document ingestion, and a built-in dashboard UI.
+Seekr is a self-hosted document search app built in Go. It stores documents in a local `bbolt` database, indexes them with BM25-style ranking and fuzzy token matching, and ships with an authenticated dashboard for collections, search, bulk imports, and document editing.
 
-## Features
+## Highlights
 
-- **BM25 + Fuzzy Search** — ranked full-text search with stemming, stop-word removal, and fuzzy token matching
-- **Persistent Storage** — documents and the inverted index live in a single `seekr.db` bbolt file; data survives restarts
-- **Multi-format Ingestion** — auto-detects format and extracts only human-readable text for indexing; raw payload is stored verbatim
-- **REST API** — six JSON endpoints covering all CRUD and search operations
-- **Dashboard UI** — web UI served at `http://localhost:8080`
-- **Swagger Docs** — interactive API explorer at `http://localhost:8080/swagger/`
-
+- **BM25 + fuzzy search** with stemming and stop-word filtering
+- **Persistent storage** in a single local `seekr.db` file
+- **Collections** for separating datasets inside one database
+- **Authenticated dashboard** with login, stats, document browsing, editing, and bulk import
+- **Async bulk imports** with progress updates over SSE and in-app notifications
+- **JSON-aware indexing** where JSON values are extracted for indexing while raw payloads are preserved
+- **Swagger docs** served by the app at `http://localhost:8080/swagger/`
 
 ## Quick Start
 
@@ -22,144 +22,190 @@ go run main.go
 
 Open `http://localhost:8080` in your browser.
 
-## API Reference
+## Authentication
 
-Interactive docs are available at **`http://localhost:8080/swagger/`** once the server is running.
+Seekr requires login for API and dashboard access except static assets and Swagger.
 
-### `POST /index`
+Configure credentials with:
+
+```bash
+SEEKR_USERNAME=admin
+SEEKR_PASSWORD_HASH=pbkdf2_sha256$600000$<salt-base64>$<hash-base64>
+```
+
+You can also use plaintext `SEEKR_PASSWORD`, but `SEEKR_PASSWORD_HASH` is preferred for real deployments.
+
+If no password is configured, Seekr generates a temporary bootstrap password at startup and prints it to the server logs.
+
+Useful auth settings:
+
+```bash
+SEEKR_SESSION_TTL_HOURS=24
+SEEKR_SESSION_IDLE_MINUTES=30
+SEEKR_LOGIN_MAX_FAILURES=5
+SEEKR_LOGIN_WINDOW_MINUTES=15
+SEEKR_LOGIN_LOCKOUT_MINUTES=15
+SEEKR_SECURE_COOKIES=false
+```
+
+## Environment
+
+An example config is included in [.env.example](./.env.example).
+
+Seekr loads `.env` at startup if present.
+
+## API Overview
+
+Interactive docs are available at `http://localhost:8080/swagger/` once the server is running.
+
+All authenticated endpoints accept the session cookie set by `/api/login`. The middleware also accepts `Authorization: Bearer <token>`.
+
+### `POST /api/login`
+
+```bash
+curl -X POST http://localhost:8080/api/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"your-password"}'
+```
+
+### `POST /index?collection=<name>`
+
 Index a single document.
 
 ```bash
-curl -X POST http://localhost:8080/index \
+curl -X POST "http://localhost:8080/index?collection=movies" \
   -H "Content-Type: application/json" \
-  -d '{"id": "doc-1", "text": "The quick brown fox"}'
+  -d '{"id":"movie-1","text":"{\"Title\":\"Interstellar\",\"Director\":\"Christopher Nolan\"}"}'
 ```
 
-```bash
-# JSON document — only values are indexed, keys are not
-curl -X POST http://localhost:8080/index \
-  -H "Content-Type: application/json" \
-  -d '{"id": "movie-1", "text": "{\"Title\": \"Interstellar\", \"Director\": \"Christopher Nolan\"}"}'
-```
+### `POST /bulk-index?collection=<name>`
 
-**Response:** `201 Created`
-
----
-
-### `POST /bulk-index`
-Index multiple documents in one request. Each item may include optional `id` and `text` fields. If `id` is omitted a UUID v4 is auto-generated. If `text` is omitted the **entire object** is used as the document body.
+Synchronous bulk indexing endpoint. Still useful for scripts, but the dashboard now prefers async imports.
 
 ```bash
-curl -X POST http://localhost:8080/bulk-index \
+curl -X POST "http://localhost:8080/bulk-index?collection=movies" \
   -H "Content-Type: application/json" \
   -d '[
-    {"text": "plain text document"},
-    {"id": "custom-id", "text": "explicit id and text"},
-    {"Title": "Avatar", "Director": "James Cameron", "Plot": "A paraplegic marine..."}
+    {"text":"plain text document"},
+    {"id":"custom-id","text":"explicit id and text"},
+    {"Title":"Avatar","Director":"James Cameron"}
   ]'
 ```
 
-**Response:**
-```json
-{"indexed": 3, "skipped": 0}
-```
+### `POST /api/imports?collection=<name>`
 
----
-
-### `GET /search?q=<query>`
-Full-text BM25 search with fuzzy matching. Results are ranked by relevance score.
+Create an async bulk import job.
 
 ```bash
-curl "http://localhost:8080/search?q=christopher+nolan"
-```
-
-**Response:**
-```json
-{
-  "results": [
-    {"id": "movie-1", "text": "{\"Title\": \"Interstellar\", ...}", "score": 3.42}
-  ]
-}
-```
-
----
-
-### `GET /api/documents?page=1&limit=20`
-Paginated list of all stored documents.
-
-```bash
-curl "http://localhost:8080/api/documents?page=1&limit=10"
-```
-
-**Response:**
-```json
-{
-  "documents": [{"id": "doc-1", "text": "The quick brown fox"}],
-  "total": 1,
-  "page": 1,
-  "limit": 10
-}
-```
-
----
-
-### `PUT /api/documents/update?id=<id>`
-Update a document's content. The BM25 index is updated atomically.
-
-```bash
-curl -X PUT "http://localhost:8080/api/documents/update?id=doc-1" \
+curl -X POST "http://localhost:8080/api/imports?collection=movies" \
   -H "Content-Type: application/json" \
-  -d '{"text": "The quick brown fox jumps over the lazy dog"}'
+  -d '[
+    {"Title":"Interstellar","Director":"Christopher Nolan"},
+    {"Title":"Oppenheimer","Director":"Christopher Nolan"}
+  ]'
 ```
 
-**Response:** `200 OK`
+Response:
 
----
+```json
+{
+  "job": {
+    "id": "job-id",
+    "collection": "movies",
+    "status": "queued",
+    "total": 2,
+    "processed": 0,
+    "indexed": 0,
+    "skipped": 0
+  }
+}
+```
 
-### `GET /api/stats`
-Global database statistics.
+### `GET /api/imports?collection=<name>`
+
+List recent import jobs for a collection.
+
+### `GET /api/imports/events?collection=<name>`
+
+Server-Sent Events stream for import progress.
+
+### `POST /search?collection=<name>`
+
+Search is JSON POST-based in the current app.
 
 ```bash
-curl http://localhost:8080/api/stats
+curl -X POST "http://localhost:8080/search?collection=movies" \
+  -H "Content-Type: application/json" \
+  -d '{"q":"christopher nolan","boosts":{"Title":2.0}}'
 ```
 
-**Response:**
-```json
-{"totalDocs": 6096, "totalLength": 673018}
-```
+### `GET /api/documents?collection=<name>&page=1&limit=20`
 
-## Architecture
+Paginated document listing.
 
-```
+### `PUT /api/documents/update?collection=<name>&id=<id>`
+
+Update a stored document and reindex it atomically.
+
+### `GET /api/stats?collection=<name>`
+
+Collection-level stats.
+
+### `GET|POST|DELETE /api/collections`
+
+- `GET /api/collections` lists collections
+- `POST /api/collections` creates one
+- `DELETE /api/collections?name=<name>` deletes one
+
+## Dashboard
+
+The embedded UI includes:
+
+- authenticated sign-in
+- collection switching and management
+- single-document indexing
+- bulk JSON import by paste or `.json` file
+- async import progress panel with dismiss support
+- paginated browsing
+- inline JSON viewing with syntax coloring
+- field-boosted search
+- document editing
+
+## Search and Indexing Notes
+
+- Seekr extracts JSON values for indexing when a document body is valid JSON
+- raw document text is preserved exactly as stored
+- query matching uses tokenization, stop-word filtering, stemming, and fuzzy posting lookup
+- field boosts are applied only when the stored document body is valid JSON and the boosted field is a string
+
+## Project Layout
+
+```text
 seekr/
-├── main.go              # Entry point, server bootstrap
-├── routes/              # HTTP router and middleware
-├── controllers/         # HTTP handlers (annotated for Swagger)
-├── services/            # BM25 search engine
+├── main.go              # Entry point and server bootstrap
+├── routes/              # Router wiring
+├── controllers/         # HTTP handlers, including async import jobs
+├── services/            # Search engine logic
 ├── db/                  # bbolt persistence layer
-├── tokenizer/           # Stemming, stop-words, tokenization
-├── parser/              # Multi-format text extractor (JSON/YAML/TOML/XML/HTML)
-├── index/               # Fuzzy index
-├── types/               # Shared types
-├── ui/                  # Embedded web dashboard (HTML/CSS/JS)
-├── assets/              # Embedded stop-words and assets
-├── docs/                # Auto-generated Swagger spec (swag init)
+├── middleware/          # Auth and request protection
+├── parser/              # Text extraction helpers
+├── tokenizer/           # Tokenization, stemming, stop-word filtering
+├── types/               # Shared request/response types
+├── ui/                  # Embedded dashboard assets
+├── docs/                # Swagger output
 └── tests/               # Integration and unit tests
 ```
 
 ## Running Tests
 
 ```bash
-go test -v ./tests/...
+go test ./...
 ```
 
-## Generating / Updating Swagger Docs
+## Regenerating Swagger
 
 ```bash
-# Install swag CLI (one-time)
 go install github.com/swaggo/swag/cmd/swag@latest
-
-# Regenerate after changing handler annotations
 swag init --parseDependency --parseInternal
 ```
 
@@ -167,10 +213,9 @@ swag init --parseDependency --parseInternal
 
 | Component | Library |
 |-----------|---------|
-| HTTP server | `net/http` (stdlib) |
+| HTTP server | `net/http` |
 | Storage | `go.etcd.io/bbolt` |
 | Stemming | `github.com/kljensen/snowball` |
-| YAML parsing | `gopkg.in/yaml.v3` |
-| TOML parsing | `github.com/BurntSushi/toml` |
-| HTML parsing | `golang.org/x/net/html` |
-| Swagger | `github.com/swaggo/swag` + `http-swagger` |
+| Auth hashing | `crypto/pbkdf2` |
+| Swagger UI | `github.com/swaggo/http-swagger` |
+
