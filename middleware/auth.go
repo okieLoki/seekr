@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"crypto/pbkdf2"
+	"seekr/db"
 )
 
 const (
@@ -65,9 +66,8 @@ type authManager struct {
 	attemptWindow time.Duration
 	lockoutWindow time.Duration
 	now           func() time.Time
-
-	sessions map[string]session
-	attempts map[string]loginAttempt
+	store         *db.Store
+	attempts      map[string]loginAttempt
 }
 
 var (
@@ -76,8 +76,12 @@ var (
 	authInitErr error
 )
 
-func Init() error {
+func Init(store *db.Store) error {
 	_, err := getAuthManager()
+	if err != nil {
+		return err
+	}
+	authCurrent.store = store
 	return err
 }
 
@@ -136,7 +140,6 @@ func newAuthManagerFromEnv() (*authManager, error) {
 		attemptWindow: envDurationFromMinutes("SEEKR_LOGIN_WINDOW_MINUTES", defaultLoginAttemptWindow),
 		lockoutWindow: envDurationFromMinutes("SEEKR_LOGIN_LOCKOUT_MINUTES", defaultLoginLockoutDuration),
 		now:           time.Now,
-		sessions:      make(map[string]session),
 		attempts:      make(map[string]loginAttempt),
 	}
 
@@ -349,13 +352,17 @@ func (a *authManager) issueSession(username string, secureCookie bool) (string, 
 	token := hex.EncodeToString(tokenBytes)
 
 	now := a.now()
-	a.mu.Lock()
-	a.sessions[token] = session{
-		username:  username,
-		createdAt: now,
-		lastSeen:  now,
+	if a.store == nil {
+		return "", nil, errors.New("auth store not configured")
 	}
-	a.mu.Unlock()
+	err := a.store.SaveSession(token, db.SessionRecord{
+		Username:  username,
+		CreatedAt: now,
+		LastSeen:  now,
+	})
+	if err != nil {
+		return "", nil, err
+	}
 
 	return token, &http.Cookie{
 		Name:     sessionCookieName,
@@ -385,33 +392,40 @@ func (a *authManager) isValidSession(r *http.Request) bool {
 	if token == "" {
 		return false
 	}
+	if a.store == nil {
+		return false
+	}
 
 	now := a.now()
-
-	a.mu.Lock()
-	defer a.mu.Unlock()
-
-	sess, ok := a.sessions[token]
-	if !ok {
+	record, ok, err := a.store.GetSession(token)
+	if err != nil || !ok {
 		return false
+	}
+	sess := session{
+		username:  record.Username,
+		createdAt: record.CreatedAt,
+		lastSeen:  record.LastSeen,
 	}
 	if now.Sub(sess.createdAt) > a.sessionTTL || now.Sub(sess.lastSeen) > a.idleTTL {
-		delete(a.sessions, token)
+		_ = a.store.DeleteSession(token)
 		return false
 	}
-	sess.lastSeen = now
-	a.sessions[token] = sess
+	if err := a.store.SaveSession(token, db.SessionRecord{
+		Username:  sess.username,
+		CreatedAt: sess.createdAt,
+		LastSeen:  now,
+	}); err != nil {
+		return false
+	}
 	return true
 }
 
 func (a *authManager) revokeSession(r *http.Request) {
 	token := tokenFromRequest(r)
-	if token == "" {
+	if token == "" || a.store == nil {
 		return
 	}
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	delete(a.sessions, token)
+	_ = a.store.DeleteSession(token)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

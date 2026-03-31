@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"seekr/db"
 	"strings"
 	"sync"
 	"testing"
@@ -21,6 +23,18 @@ func initTestAuth(t *testing.T) *authManager {
 
 	resetAuthStateForTest()
 	t.Cleanup(resetAuthStateForTest)
+
+	store, err := db.NewStore(filepath.Join(t.TempDir(), "auth-test.db"))
+	if err != nil {
+		t.Fatalf("db.NewStore() error = %v", err)
+	}
+	t.Cleanup(func() {
+		_ = store.Close()
+	})
+
+	if err := Init(store); err != nil {
+		t.Fatalf("Init() error = %v", err)
+	}
 
 	manager, err := getAuthManager()
 	if err != nil {
@@ -146,5 +160,36 @@ func TestSessionIdleTimeout(t *testing.T) {
 	protected.ServeHTTP(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expired session status = %d, want %d", rr.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSessionPersistsInStore(t *testing.T) {
+	t.Setenv("SEEKR_USERNAME", "admin")
+	t.Setenv("SEEKR_PASSWORD", "persistent-secret")
+
+	manager := initTestAuth(t)
+	now := time.Now()
+	manager.now = func() time.Time { return now }
+
+	login := loginRequest(t, "admin", "persistent-secret")
+	if login.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want %d", login.Code, http.StatusOK)
+	}
+
+	cookies := login.Result().Cookies()
+	if len(cookies) == 0 {
+		t.Fatal("expected session cookie to be set")
+	}
+
+	token := cookies[0].Value
+	record, ok, err := manager.store.GetSession(token)
+	if err != nil {
+		t.Fatalf("GetSession() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("expected persisted session record")
+	}
+	if record.Username != "admin" {
+		t.Fatalf("record username = %q, want %q", record.Username, "admin")
 	}
 }

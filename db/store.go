@@ -5,17 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 
 	"go.etcd.io/bbolt"
 )
 
 var rootBucket = []byte("collections")
+var authBucket = []byte("auth")
 
 const (
 	subDocs       = "docs"
 	subDocLengths = "docLengths"
 	subIndex      = "index"
 	subMeta       = "meta"
+	subSessions   = "sessions"
 )
 
 const DefaultCollection = "default"
@@ -32,6 +35,14 @@ func NewStore(path string) (*Store, error) {
 
 	err = db.Update(func(tx *bbolt.Tx) error {
 		_, e := tx.CreateBucketIfNotExists(rootBucket)
+		if e != nil {
+			return e
+		}
+		authRoot, e := tx.CreateBucketIfNotExists(authBucket)
+		if e != nil {
+			return e
+		}
+		_, e = authRoot.CreateBucketIfNotExists([]byte(subSessions))
 		return e
 	})
 	if err != nil {
@@ -327,6 +338,70 @@ func (s *Store) GetDocuments(collection string, docIds []string) (map[string]str
 		return nil
 	})
 	return docs, err
+}
+
+type SessionRecord struct {
+	Username  string    `json:"username"`
+	CreatedAt time.Time `json:"createdAt"`
+	LastSeen  time.Time `json:"lastSeen"`
+}
+
+func (s *Store) SaveSession(token string, record SessionRecord) error {
+	return s.DB.Update(func(tx *bbolt.Tx) error {
+		authRoot := tx.Bucket(authBucket)
+		if authRoot == nil {
+			return errors.New("auth bucket missing")
+		}
+		sessions := authRoot.Bucket([]byte(subSessions))
+		if sessions == nil {
+			return errors.New("sessions bucket missing")
+		}
+		payload, err := json.Marshal(record)
+		if err != nil {
+			return err
+		}
+		return sessions.Put([]byte(token), payload)
+	})
+}
+
+func (s *Store) GetSession(token string) (SessionRecord, bool, error) {
+	var record SessionRecord
+	err := s.DB.View(func(tx *bbolt.Tx) error {
+		authRoot := tx.Bucket(authBucket)
+		if authRoot == nil {
+			return errors.New("auth bucket missing")
+		}
+		sessions := authRoot.Bucket([]byte(subSessions))
+		if sessions == nil {
+			return errors.New("sessions bucket missing")
+		}
+		payload := sessions.Get([]byte(token))
+		if payload == nil {
+			return nil
+		}
+		return json.Unmarshal(payload, &record)
+	})
+	if err != nil {
+		return SessionRecord{}, false, err
+	}
+	if record.CreatedAt.IsZero() {
+		return SessionRecord{}, false, nil
+	}
+	return record, true, nil
+}
+
+func (s *Store) DeleteSession(token string) error {
+	return s.DB.Update(func(tx *bbolt.Tx) error {
+		authRoot := tx.Bucket(authBucket)
+		if authRoot == nil {
+			return errors.New("auth bucket missing")
+		}
+		sessions := authRoot.Bucket([]byte(subSessions))
+		if sessions == nil {
+			return errors.New("sessions bucket missing")
+		}
+		return sessions.Delete([]byte(token))
+	})
 }
 
 func unique(words []string) []string {
