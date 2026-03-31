@@ -12,6 +12,13 @@ Seekr is a self-hosted document search app built in Go. It stores documents in a
 - **JSON-aware indexing** where JSON values are extracted for indexing while raw payloads are preserved
 - **Swagger docs** served by the app at `http://localhost:8080/swagger/`
 
+## UI overview
+
+<img width="1466" height="792" alt="image" src="https://github.com/user-attachments/assets/3271286a-2492-475d-8567-ff8550acb1ee" />
+<img width="1466" height="792" alt="image" src="https://github.com/user-attachments/assets/5abd41c3-3eae-40ac-aff3-a2ab6893bb51" />
+<img width="1466" height="792" alt="image" src="https://github.com/user-attachments/assets/4c257b95-fe05-4cdc-b9b7-da73fe39e84e" />
+
+
 ## Quick Start
 
 ```bash
