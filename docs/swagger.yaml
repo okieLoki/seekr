@@ -10,6 +10,16 @@ info:
 host: localhost:8080
 basePath: /
 
+securityDefinitions:
+  BearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+    description: "Enter your Bearer token in the format: Bearer {token}"
+
+security:
+  - BearerAuth: []
+
 definitions:
   BoostMap:
     type: object
@@ -125,6 +135,34 @@ definitions:
         type: string
 
 paths:
+  /api/login:
+    post:
+      summary: Login
+      description: Get an authentication token
+      tags:
+        - auth
+      security: []
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - username
+              - password
+            properties:
+              username:
+                type: string
+              password:
+                type: string
+      responses:
+        "200":
+           description: OK
   /index:
     post:
       summary: Index a document

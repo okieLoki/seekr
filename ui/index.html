@@ -35,8 +35,9 @@
                 <p id="loginError" class="login-error" role="alert"></p>
                 <button id="loginBtn" type="submit" class="login-btn">Sign in</button>
             </form>
-            <p class="login-hint">Default credentials: <code>admin</code> / <code>password</code><br>Override with
-                <code>SEEKR_USERNAME</code> &amp; <code>SEEKR_PASSWORD</code> in your <code>.env</code>.
+            <p class="login-hint">Use <code>SEEKR_USERNAME</code> with <code>SEEKR_PASSWORD_HASH</code> or
+                <code>SEEKR_PASSWORD</code> in <code>.env</code>.<br>If no password is configured, Seekr prints a
+                temporary bootstrap password to the server logs when it starts.
             </p>
         </div>
     </div>
