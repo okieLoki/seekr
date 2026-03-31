@@ -25,8 +25,10 @@ function sortJobs(jobs) {
 function renderImportJobs() {
     const jobs = sortJobs(state.importJobs).slice(0, 6);
     const active = jobs.filter(j => j.status === 'queued' || j.status === 'processing');
+    const dismissible = jobs.length > 0 && active.length === 0;
 
-    dom.importPanel.classList.toggle('hidden', jobs.length === 0);
+    dom.dismissImportPanelBtn.classList.toggle('hidden', !dismissible);
+    dom.importPanel.classList.toggle('hidden', jobs.length === 0 || (state.importPanelDismissed && active.length === 0));
     if (!jobs.length) {
         dom.importPanelSummary.textContent = 'No active imports';
         dom.importList.innerHTML = '';
@@ -62,6 +64,9 @@ function renderImportJobs() {
 }
 
 function upsertJob(job) {
+    if (job.status === 'queued' || job.status === 'processing') {
+        state.importPanelDismissed = false;
+    }
     const idx = state.importJobs.findIndex(existing => existing.id === job.id);
     if (idx === -1) {
         state.importJobs.unshift(job);
@@ -104,6 +109,9 @@ export async function fetchImportJobs() {
         if (!res.ok) return;
         const data = await res.json();
         state.importJobs = Array.isArray(data.jobs) ? data.jobs : [];
+        if (state.importJobs.some(job => job.status === 'queued' || job.status === 'processing')) {
+            state.importPanelDismissed = false;
+        }
         renderImportJobs();
     } catch { }
 }
@@ -167,5 +175,9 @@ export async function queueImport(payload) {
 }
 
 export function initImports() {
+    dom.dismissImportPanelBtn.addEventListener('click', () => {
+        state.importPanelDismissed = true;
+        renderImportJobs();
+    });
     renderImportJobs();
 }

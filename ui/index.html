@@ -8,7 +8,8 @@
     <meta name="description" content="Seekr — full-text search engine with collection management">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -184,7 +185,10 @@
             <section id="importPanel" class="import-panel hidden" aria-live="polite">
                 <div class="import-panel-head">
                     <span class="import-panel-title">Import Activity</span>
-                    <span id="importPanelSummary" class="import-panel-summary">No active imports</span>
+                    <div class="import-panel-actions">
+                        <span id="importPanelSummary" class="import-panel-summary">No active imports</span>
+                        <button id="dismissImportPanelBtn" class="import-panel-dismiss hidden" type="button" aria-label="Dismiss import activity">×</button>
+                    </div>
                 </div>
                 <div id="importList" class="import-list"></div>
             </section>

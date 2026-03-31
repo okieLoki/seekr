@@ -11,6 +11,7 @@ export const state = {
     importJobs: [],
     importEventSource: null,
     importStreamCollection: null,
+    importPanelDismissed: false,
 };
 
 const $ = id => document.getElementById(id);
@@ -51,6 +52,7 @@ export const dom = {
     submitBulkBtn:        $('submitBulkBtn'),
     importPanel:          $('importPanel'),
     importPanelSummary:   $('importPanelSummary'),
+    dismissImportPanelBtn:$('dismissImportPanelBtn'),
     importList:           $('importList'),
     editModal:            $('editModal'),
     editDocIdLabel:       $('editDocIdLabel'),
