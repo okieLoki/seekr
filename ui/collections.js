@@ -140,6 +140,7 @@ export async function switchCollection(name) {
     state.knownFields = [];
     state.page = 1;
     await fetchCollections();
+    window._onCollectionChange && window._onCollectionChange();
     window._refresh();
 }
 

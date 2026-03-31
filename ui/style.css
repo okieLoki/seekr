@@ -702,6 +702,99 @@ body {
     gap: 8px;
 }
 
+.import-panel {
+    margin: 0 16px 16px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.import-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.import-panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+
+.import-panel-summary {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.import-list {
+    display: grid;
+    gap: 10px;
+}
+
+.import-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.92);
+}
+
+.import-card-head,
+.import-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.import-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.import-card-meta,
+.import-card-foot {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.import-card-count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+
+.import-progress {
+    height: 8px;
+    margin: 10px 0 8px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: #e2e8f0;
+}
+
+.import-progress-bar {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+    transition: width 0.25s ease;
+}
+
+.import-completed .import-progress-bar {
+    background: linear-gradient(90deg, #16a34a 0%, #4ade80 100%);
+}
+
+.import-failed .import-progress-bar {
+    background: linear-gradient(90deg, #dc2626 0%, #fb7185 100%);
+}
+
 .doc-range {
     font-size: 12px;
     color: var(--text-muted);
@@ -1244,6 +1337,10 @@ pre.json-view {
         padding-bottom: 6px;
     }
 
+    .import-panel {
+        margin: 0 12px 12px;
+    }
+
     /* Doc list padding */
     .doc-list {
         padding: 12px;
@@ -1286,6 +1383,13 @@ pre.json-view {
 
     .pager-sep {
         display: none;
+    }
+
+    .import-panel-head,
+    .import-card-head,
+    .import-card-foot {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     /* Boost drawer: stack vertically */

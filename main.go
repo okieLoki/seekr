@@ -61,7 +61,8 @@ func main() {
 
 	engine := services.NewEngine(store)
 	controller := controllers.NewSearchController(engine)
-	router := routes.SetupRouter(controller)
+	importController := controllers.NewImportController(engine)
+	router := routes.SetupRouter(controller, importController)
 
 	slog.Info("Starting REST API search server on :8080")
 	if err := http.ListenAndServe(":8080", router); err != nil {

@@ -12,7 +12,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func SetupRouter(c *controllers.SearchController) *http.ServeMux {
+func SetupRouter(c *controllers.SearchController, imports *controllers.ImportController) *http.ServeMux {
 	router := http.NewServeMux()
 
 	router.HandleFunc("/api/login", middleware.HandleLogin)
@@ -20,6 +20,17 @@ func SetupRouter(c *controllers.SearchController) *http.ServeMux {
 
 	router.HandleFunc("/index", c.HandleIndex)
 	router.HandleFunc("/bulk-index", c.HandleBulkIndex)
+	router.HandleFunc("/api/imports", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			imports.HandleListImports(w, r)
+		case http.MethodPost:
+			imports.HandleCreateImport(w, r)
+		default:
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	router.HandleFunc("/api/imports/events", imports.HandleImportEvents)
 	router.HandleFunc("/api/documents", c.HandleDocuments)
 	router.HandleFunc("/api/documents/update", c.HandleUpdate)
 

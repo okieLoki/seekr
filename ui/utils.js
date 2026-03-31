@@ -8,11 +8,14 @@ export function esc(s) {
         .replace(/"/g, '&quot;');
 }
 
+let toastTimer = null;
+
 export function showToast(msg, err = false) {
     dom.toast.textContent = msg;
     dom.toast.style.background = err ? '#dc2626' : '#16a34a';
     dom.toast.classList.add('show');
-    setTimeout(() => dom.toast.classList.remove('show'), 3500);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => dom.toast.classList.remove('show'), 3500);
 }
 
 export function collectionParam(activeCollection) {

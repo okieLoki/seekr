@@ -15,6 +15,37 @@ type BulkIndexResult struct {
 	Errors  []string `json:"errors,omitempty"`
 }
 
+type ImportJobStatus string
+
+const (
+	ImportJobQueued     ImportJobStatus = "queued"
+	ImportJobProcessing ImportJobStatus = "processing"
+	ImportJobCompleted  ImportJobStatus = "completed"
+	ImportJobFailed     ImportJobStatus = "failed"
+)
+
+type ImportJob struct {
+	ID         string          `json:"id"`
+	Collection string          `json:"collection"`
+	Status     ImportJobStatus `json:"status"`
+	Total      int             `json:"total"`
+	Processed  int             `json:"processed"`
+	Indexed    int             `json:"indexed"`
+	Skipped    int             `json:"skipped"`
+	Error      string          `json:"error,omitempty"`
+	Errors     []string        `json:"errors,omitempty"`
+	CreatedAt  int64           `json:"createdAt"`
+	UpdatedAt  int64           `json:"updatedAt"`
+}
+
+type ImportJobResponse struct {
+	Job ImportJob `json:"job"`
+}
+
+type ImportJobsResponse struct {
+	Jobs []ImportJob `json:"jobs"`
+}
+
 type UpdateRequest struct {
 	Text string `json:"text"`
 }

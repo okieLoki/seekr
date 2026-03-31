@@ -1,8 +1,9 @@
 import { state, dom } from './state.js';
 import { showToast, collectionParam } from './utils.js';
 import { closeSidebar } from './sidebar.js';
-import { refresh, triggerSearch, fetchDocs } from './docs.js';
+import { refresh, triggerSearch } from './docs.js';
 import { fetchCollections } from './collections.js';
+import { queueImport } from './imports.js';
 
 export function initModals() {
     document.getElementById('openAddModalBtn').addEventListener('click', () => {
@@ -46,18 +47,11 @@ export function initModals() {
         let payload;
         try { payload = JSON.parse(dom.bulkDocText.value.trim()); if (!Array.isArray(payload)) throw 0; }
         catch { showToast('Must be a valid JSON array.', true); return; }
-        dom.submitBulkBtn.textContent = `Importing ${payload.length}…`; dom.submitBulkBtn.disabled = true;
+        dom.submitBulkBtn.textContent = `Queueing ${payload.length}…`; dom.submitBulkBtn.disabled = true;
         try {
-            const res = await fetch(`/bulk-index${collectionParam(state.activeCollection)}`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!res.ok) throw new Error(await res.text());
-            const r = await res.json();
-            showToast(`Imported ${r.indexed} doc${r.indexed !== 1 ? 's' : ''}${r.skipped ? `, skipped ${r.skipped}` : ''}`, r.indexed === 0);
+            const job = await queueImport(payload);
+            showToast(`Import queued: ${job.total} document${job.total !== 1 ? 's' : ''}.`);
             dom.bulkModal.close();
-            refresh();
-            fetchCollections();
         } catch (err) { showToast(err.message, true); }
         finally { dom.submitBulkBtn.textContent = 'Import All'; dom.submitBulkBtn.disabled = false; }
     });

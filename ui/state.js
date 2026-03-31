@@ -8,6 +8,9 @@ export const state = {
     boostRows: [],
     knownFields: [],
     openMenuEl: null,
+    importJobs: [],
+    importEventSource: null,
+    importStreamCollection: null,
 };
 
 const $ = id => document.getElementById(id);
@@ -43,6 +46,9 @@ export const dom = {
     bulkModalCollection:  $('bulkModalCollection'),
     bulkDocText:          $('bulkDocText'),
     submitBulkBtn:        $('submitBulkBtn'),
+    importPanel:          $('importPanel'),
+    importPanelSummary:   $('importPanelSummary'),
+    importList:           $('importList'),
     editModal:            $('editModal'),
     editDocIdLabel:       $('editDocIdLabel'),
     editDocText:          $('editDocText'),

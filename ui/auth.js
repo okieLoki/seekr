@@ -36,6 +36,7 @@ export async function login(username, password) {
 export async function logout() {
     await fetch('/api/logout', { method: 'POST' });
     isAuthenticated = false;
+    window._teardownApp && window._teardownApp();
     showLoginScreen();
 }
 
@@ -52,6 +53,7 @@ function _buildLoginScreen() {
 }
 
 export function showLoginScreen() {
+    window._teardownApp && window._teardownApp();
     if (loginScreen) loginScreen.classList.remove('hidden');
     if (appRoot) appRoot.classList.add('hidden');
     // Clear password field
